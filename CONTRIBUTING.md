@@ -59,8 +59,13 @@ scan later.
 
 - TypeScript, kept close to the existing style in the file you're editing.
 - Prefer small, readable functions over clever one-liners.
-- If you're adding a new command, check `COMMAND_SPEC.md` first — new
-  commands should fit the existing verb/noun pattern (`brg <verb> <noun>`).
+- If you're adding a new command, check the [command reference](./README.md#command-reference)
+  and [ROADMAP.md](./ROADMAP.md) first — new commands should fit the
+  existing verb/noun pattern (`brg <verb> <noun>`).
+- Adding support for a new AI CLI means adding one adapter file under
+  `src/tools/` that implements the `ToolAdapter` interface — see the
+  existing adapters (`claude.ts`, `gemini.ts`, etc.) for the shape. No
+  changes needed elsewhere in the codebase.
 
 ## Pull request review
 
