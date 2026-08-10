@@ -51,6 +51,10 @@ describe('brg checkpoint', () => {
     expect(process.exitCode).toBe(1);
     process.exitCode = 0;
 
+    // Must leave freshDir before removing it — deleting the process's
+    // own cwd fails with EBUSY on Windows (POSIX allows it, which is why
+    // this only failed in CI on windows-latest).
+    process.chdir(tmpDir);
     fs.rmSync(freshDir, { recursive: true, force: true });
   });
 });
