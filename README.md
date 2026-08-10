@@ -78,6 +78,10 @@ brg switch claude    # hand off to Claude Code with your project context loaded
 - `brg switch claude` reads `.brg/context.md`, hands off full terminal
   control to `claude` with that context loaded, then exits.
 
+For the full command reference and detailed guides — every flag, how
+context/checkpoints/sessions work, common workflows, troubleshooting, and
+uninstall instructions — see [docs/USER_GUIDE.md](./docs/USER_GUIDE.md).
+
 ## Command reference
 
 | Command | Description | Example |
@@ -95,7 +99,9 @@ brg switch claude    # hand off to Claude Code with your project context loaded
 | `brg --version` | Print the installed version | `brg --version` |
 | `brg --help` | Show all commands | `brg --help` |
 
-Run `brg <command> --help` for any command's exact flags.
+Run `brg <command> --help` for any command's exact flags, or see
+[docs/USER_GUIDE.md](./docs/USER_GUIDE.md) for a full breakdown of every
+flag with examples.
 
 ## How it works
 
