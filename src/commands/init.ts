@@ -14,7 +14,9 @@ export function initCommand(): void {
   fs.mkdirSync(sessionsDir(), { recursive: true });
   initContext();
   if (!fs.existsSync(configPath())) {
-    writeConfig({ contextStrategy: 'manual' });
+    // ai-assisted degrades all the way down to manual's own output when
+    // nothing richer is available, so it's a safe default for new projects.
+    writeConfig({ contextStrategy: 'ai-assisted' });
   }
 
   console.log(`${amber('✓')} Initialized .brg/ in ${process.cwd()}`);

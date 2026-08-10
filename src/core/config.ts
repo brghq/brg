@@ -8,7 +8,9 @@ export interface BrgConfig {
 }
 
 const DEFAULT_CONFIG: BrgConfig = {
-  contextStrategy: 'manual',
+  // ai-assisted degrades all the way down to manual's own output when
+  // nothing richer is available, so it's a strict superset — safe default.
+  contextStrategy: 'ai-assisted',
 };
 
 export function brgDir(cwd: string = process.cwd()): string {

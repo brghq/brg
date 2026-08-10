@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildProgram } from '../src/index.js';
+import { listAdapters } from '../src/tools/registry.js';
 
 describe('command parsing', () => {
   it('registers all Phase 1 commands', () => {
@@ -34,10 +35,10 @@ describe('command parsing', () => {
         received = { message, options };
       });
 
-    await program.parseAsync(['node', 'brg', 'checkpoint', 'wrapped up the fix', '--tool', 'gemini']);
+    await program.parseAsync(['node', 'brg', 'checkpoint', 'wrapped up the fix', '--tool', 'codex']);
 
     expect(received.message).toBe('wrapped up the fix');
-    expect(received.options?.tool).toBe('gemini');
+    expect(received.options?.tool).toBe('codex');
   });
 
   it('routes "tools list" and "context show" subcommands', async () => {
@@ -63,5 +64,10 @@ describe('command parsing', () => {
 
     expect(toolsListCalled).toBe(true);
     expect(contextShowCalled).toBe(true);
+  });
+
+  it('registers exactly the two supported tool adapters', () => {
+    const names = listAdapters().map((a) => a.name).sort();
+    expect(names).toEqual(['claude', 'codex']);
   });
 });

@@ -15,8 +15,8 @@
 </p>
 
 `brg` is a git-style CLI orchestrator that switches you between AI coding
-CLIs — Claude Code, Gemini CLI, Codex, OpenCode — without losing the
-context of what you were doing.
+CLIs — Claude Code and Codex today — without losing the context of what
+you were doing.
 
 ## Why brg
 
@@ -33,9 +33,7 @@ Real output from the CLI — `brg init` → `brg checkpoint` → `brg log` →
 ```console
 $ brg tools list
 claude     Claude Code    installed, authenticated
-gemini     Gemini CLI     not installed
 codex      Codex          not installed
-opencode   OpenCode       not installed
 
 $ brg init
 ✓ Initialized .brg/ in /path/to/your-project
@@ -90,7 +88,7 @@ uninstall instructions — see [docs/USER_GUIDE.md](./docs/USER_GUIDE.md).
 | `brg tools list` | List which AI CLIs are registered, installed, and authenticated | `brg tools list` |
 | `brg init` | Create a `.brg/` directory in the current project | `brg init` |
 | `brg switch <tool>` | Hand off to an AI CLI, carrying project context with you | `brg switch claude` |
-| `brg switch <tool> -f, --fresh` | Same, but skip context — start a completely clean session | `brg switch gemini --fresh` |
+| `brg switch <tool> -f, --fresh` | Same, but skip context — start a completely clean session | `brg switch codex --fresh` |
 | `brg checkpoint <message>` | Snapshot current state with a message, like `git commit` | `brg checkpoint "fixed the auth bug" --tool claude` |
 | `brg checkpoint <message> --tool <name>` | Attribute the checkpoint to a specific tool | `brg checkpoint "..." --tool codex` |
 | `brg log` | Print a timeline of checkpoints, most recent first | `brg log` |
@@ -120,9 +118,14 @@ flag with examples.
 
 A **checkpoint** is a snapshot of where the project stands — a message
 you write (git-commit style) that gets appended to `context.md` and
-recorded as its own session file. A **switch** reads the current
+recorded as its own session file. A **switch** first auto-checkpoints
+against whatever tool you were last using — trying that tool's own
+session summary, falling back to reading its transcript straight off
+disk if that's unavailable (e.g. it just hit a quota limit), and falling
+back to a plain message as a last resort — then reads the resulting
 `context.md` and hands it to the target tool as its starting context, so
-you don't have to re-explain what you were doing.
+you don't have to re-explain what you were doing, even if the previous
+session ended abruptly.
 
 Everything is git-diffable — open `context.md` in a text editor and read
 your project history without running `brg` at all.
@@ -130,20 +133,20 @@ your project history without running `brg` at all.
 ## Supported AI CLIs
 
 - [Claude Code](https://claude.com/claude-code)
-- [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - Codex
-- OpenCode
 
 Support for more CLIs is community-extensible — adding one means adding a
 single adapter file under `src/tools/` that implements the `ToolAdapter`
-interface, no changes needed elsewhere in the codebase. See
+interface, no changes needed elsewhere in the codebase. Gemini CLI and
+OpenCode are natural candidates for a community-contributed adapter. See
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Roadmap
 
-Phase 1 (above) is shipped. Context branching (`brg branch`/`checkout`/
+Phase 1 (above) is shipped, including auto-checkpoint on `brg switch` and
+tiered context summarization. Context branching (`brg branch`/`checkout`/
 `merge`), a diff/doctor toolset, and an opt-in "wrapper mode" for live
-auto-checkpointing are planned next, with cloud sync further out. Full
+session tracking are planned next, with cloud sync further out. Full
 detail in [ROADMAP.md](./ROADMAP.md).
 
 ## Contributing

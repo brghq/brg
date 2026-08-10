@@ -16,8 +16,17 @@ The core "carry context between AI CLIs" workflow, in handoff mode:
 - `brg log` — checkpoint timeline
 - `brg status` — active tool, last checkpoint, context size, today's count
 - `brg context show` — print the raw context file
+- Auto-checkpoint on `brg switch` — before handing off, captures the
+  session you're leaving via a tiered fallback chain (self-summarize →
+  raw transcript extract → manual message), so you don't lose anything
+  even if you switch without checkpointing first
+- Rule-based `context.md` compaction — older checkpoints roll into a
+  single summary line once the file passes a size threshold, so it stays
+  bounded as a project's history grows
 
-Supported tools: Claude Code, Gemini CLI, Codex, OpenCode.
+Supported tools: Claude Code, Codex (additional adapters — Gemini CLI,
+OpenCode, others — are a natural community contribution via the
+`ToolAdapter` interface).
 
 ## Phase 2 — Planned
 
@@ -31,9 +40,12 @@ Context branching and richer session awareness:
 - `brg doctor` — diagnose a broken `.brg/` setup or misconfigured tool
 - `brg run --all` — fan a prompt out to multiple tools in parallel
 - **Wrapper mode** (opt-in) — instead of handing off and exiting, `brg`
-  stays in the loop: auto-checkpointing, live session tracking, and
-  multi-agent orchestration across tools. Handoff mode (today's default)
-  stays available regardless.
+  stays in the loop: live session tracking and multi-agent orchestration
+  across tools. (Auto-checkpointing itself already shipped in Phase 1 —
+  it doesn't need `brg` to stay resident, since both Claude Code and
+  Codex persist their own transcripts to disk continuously, so `brg` can
+  reconstruct a session after the fact without watching it live.) Handoff
+  mode (today's default) stays available regardless.
 
 ## Phase 3 — Planned
 

@@ -64,8 +64,10 @@ scan later.
   existing verb/noun pattern (`brg <verb> <noun>`).
 - Adding support for a new AI CLI means adding one adapter file under
   `src/tools/` that implements the `ToolAdapter` interface — see the
-  existing adapters (`claude.ts`, `gemini.ts`, etc.) for the shape. No
-  changes needed elsewhere in the codebase.
+  existing adapters (`claude.ts`, `codex.ts`) for the shape, and register
+  it in `tools/registry.ts`. No changes needed elsewhere in the codebase.
+  Gemini CLI and OpenCode adapters would be welcome community
+  contributions using this pattern.
 
 ## Pull request review
 

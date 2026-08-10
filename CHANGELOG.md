@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Real `ai-assisted` context strategy, replacing the previous stub: tries
+  the active tool's own session summary (`--continue`/`resume --last`)
+  first, falls back to reading that tool's on-disk transcript directly
+  (no auth/quota needed) if that's unavailable, and falls back to a plain
+  manual line as a last resort. Now the default `contextStrategy` for new
+  projects (`manual` remains available and fully offline).
+- Auto-checkpoint on `brg switch`: before handing off, captures the
+  session you're leaving via the fallback chain above, so context isn't
+  lost even if you switch tools without checkpointing first (e.g. right
+  after the previous tool hit a quota limit). Never blocks the switch
+  itself if it fails.
+- `context.md` compaction: once the file passes a size threshold, older
+  checkpoint entries roll into a single summary line, with a `.bak` of
+  the pre-compaction file kept alongside it.
+- `getLatestTranscript`/`summarizeViaSelf` added to the `ToolAdapter`
+  interface (both optional) and implemented for `claude`/`codex`; a new
+  `src/utils/transcript.ts` holds the generic, tool-agnostic JSONL
+  reading logic they share.
+
+### Changed
+- **Scope: only Claude Code and Codex are supported for now.** Gemini CLI
+  and OpenCode adapters were removed (`src/tools/gemini.ts`,
+  `src/tools/opencode.ts`); the `ToolAdapter` interface and
+  `tools/registry.ts` pattern make either a straightforward community
+  contribution to add back later.
+- `commands/checkpoint.ts` and `commands/switch.ts` now share checkpoint
+  logic via a new `core/checkpoint.ts` instead of duplicating it.
+
 ## [0.1.1] - 2026-08-10
 
 ### Added

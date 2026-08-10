@@ -24,7 +24,7 @@ Quickstart instead; come back here when you need the details.
   - [`brg context show`](#brg-context-show)
   - [`brg --version` / `brg --help`](#brg---version--brg---help)
 - [Common workflows](#common-workflows)
-  - [Switching mid-project from Claude Code to Gemini CLI](#switching-mid-project-from-claude-code-to-gemini-cli)
+  - [Switching mid-project from Claude Code to Codex](#switching-mid-project-from-claude-code-to-codex)
   - [Starting a throwaway experiment without polluting context](#starting-a-throwaway-experiment-without-polluting-context)
   - [Picking up a project after a break](#picking-up-a-project-after-a-break)
 - [Troubleshooting / FAQ](#troubleshooting--faq)
@@ -52,16 +52,18 @@ tool's chat history, which the next tool can't see.
 
 ### Checkpoints
 
-A **checkpoint** is a snapshot of where the project stands right now,
-taken explicitly by you — the same way `git commit` snapshots your repo
-at a point in time. Running `brg checkpoint "message"`:
+A **checkpoint** is a snapshot of where the project stands right now —
+the same way `git commit` snapshots your repo at a point in time.
+Running `brg checkpoint "message"`:
 
 1. Appends a line to `.brg/context.md` describing what happened.
 2. Writes a structured record to `.brg/sessions/<timestamp>.json`.
 
-Checkpoints are cheap and manual on purpose — you write one whenever
-you've reached a point worth remembering (finished a feature, made a
-decision, are about to switch tools), not on some automatic timer.
+You can write one explicitly whenever you've reached a point worth
+remembering. `brg switch <tool>` also writes one automatically before it
+hands off — see [Handoff mode vs. wrapper mode](#handoff-mode-vs-wrapper-mode)
+— so you don't lose anything even if you switch without remembering to
+checkpoint first.
 
 ### Sessions
 
@@ -85,18 +87,34 @@ timestamp. Each file has the shape:
 ### Handoff mode vs. wrapper mode
 
 `brg` currently runs in **handoff mode**, the only mode that exists
-today: `brg switch <tool>` reads your context, spawns the target AI CLI
-as a child process with full terminal control, and then **`brg` itself
-exits**. From that point on you're talking directly to `claude` (or
-`gemini`, etc.) with no `brg` process in between. This is why `brg
-switch` never returns control to you the way a normal subcommand does —
-it hands the terminal over and steps aside.
+today: `brg switch <tool>` auto-checkpoints against whatever tool you
+were last using (see below), reads your context, spawns the target AI
+CLI as a child process with full terminal control, and then **`brg`
+itself exits**. From that point on you're talking directly to `claude`
+(or `codex`) with no `brg` process in between. This is why `brg switch`
+never returns control to you the way a normal subcommand does — it hands
+the terminal over and steps aside.
 
-**Wrapper mode** is a planned Phase 2 feature (see
-[ROADMAP.md](../ROADMAP.md)) where `brg` would instead stay in the loop —
-auto-checkpointing as you work, tracking a live session, potentially
-orchestrating multiple tools at once. It does not exist yet in `0.1.0`;
-handoff mode will remain available regardless once it ships.
+Because `brg` isn't running during your session, it can't watch what
+happens live — but it doesn't need to. Claude Code and Codex both write
+their own session transcripts to disk continuously as you work, so `brg`
+can reconstruct what happened after the fact just by reading that file,
+even if the previous session ended abruptly (a quota limit, a crash).
+That's what the auto-checkpoint on `brg switch` does: before handing off,
+it tries to summarize the session you're leaving via that tool's own
+`--continue`/`resume` (richest, but needs that tool's own auth/quota);
+if that's unavailable — for example because the reason you're switching
+*is* that the tool just hit its quota — it falls back to reading the raw
+transcript file directly (pure local disk access, no auth or quota
+needed); if even that isn't available, it falls back to a plain manual
+line. See [`contextStrategy`](#configuration) below.
+
+**Wrapper mode** — `brg` staying resident and observing a session live,
+instead of reconstructing after the fact — remains a Phase 2 idea (see
+[ROADMAP.md](../ROADMAP.md)), but is no longer expected to be *required*
+for context capture, since the fallback chain above already covers the
+case it was meant to solve. It does not exist yet in `0.1.0`; handoff
+mode will remain available regardless if it ships.
 
 ## Configuration
 
@@ -104,7 +122,7 @@ Project-level settings live in `.brg/config.yaml`, created by `brg init`
 with this default content:
 
 ```yaml
-contextStrategy: manual
+contextStrategy: ai-assisted
 ```
 
 It's a plain YAML file — edit it directly with any text editor. There is
@@ -112,7 +130,7 @@ no `brg config` command yet (planned for Phase 3).
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `contextStrategy` | string | `manual` | Which strategy generates the checkpoint line appended to `context.md`. `manual` is the only implemented strategy — it logs your message as-is, enriched with the current git branch/diffstat when the project is a git repo. **Do not set this to `ai-assisted`** — that strategy is a stub for a planned Phase 2+ feature and will crash `brg checkpoint` with an unhandled error if selected (see [Troubleshooting](#troubleshooting--faq)). |
+| `contextStrategy` | string | `ai-assisted` | Which strategy generates the checkpoint line appended to `context.md`. `ai-assisted` tries, in order: (1) ask the active tool to summarize its own session via `--continue`/`resume --last`; (2) if that's unavailable, read that tool's own transcript file directly off disk and extract a raw excerpt (no auth/quota needed — this is what still works even when the tool that just failed is the one you're switching away from); (3) if even that fails, fall back to your own message as-is (identical output to `manual`). `manual` skips straight to step 3 — no shelling out to the tool at all, fully offline, zero dependencies. Set `contextStrategy: manual` in `config.yaml` if you'd rather never shell out to the tool during a checkpoint. |
 | `defaultTool` | string | *(unset)* | The tool `brg checkpoint` attributes a checkpoint to when you don't pass `--tool`, and what `brg status` reports as your "active tool". Not currently set by any command — add it to `config.yaml` by hand, e.g. `defaultTool: claude`. |
 
 The rest of `.brg/` is data, not configuration — see
@@ -152,9 +170,7 @@ $ brg setup
 brg setup — pick which AI CLIs to set up.
 
   claude     Claude Code
-  gemini     Gemini CLI
   codex      Codex
-  opencode   OpenCode
 
 Which tools do you want set up? (comma-separated names, or "all") claude
 
@@ -170,9 +186,12 @@ Per-tool install/login commands, for reference:
 | Tool | Install command | Login command | Credential file(s) checked |
 |---|---|---|---|
 | `claude` (Claude Code) | `npm install -g @anthropic-ai/claude-code` | `claude login` | `~/.claude/credentials.json`, `~/.claude.json` |
-| `gemini` (Gemini CLI) | `npm install -g @google/gemini-cli` | `gemini auth login` | `~/.gemini/credentials.json`, `~/.config/gemini/credentials.json` |
 | `codex` (Codex) | `npm install -g @openai/codex` | `codex login` | `~/.codex/auth.json`, `~/.config/codex/auth.json` |
-| `opencode` (OpenCode) | `npm install -g opencode-ai` | `opencode auth login` | `~/.opencode/auth.json`, `~/.config/opencode/auth.json` |
+
+Only these two ship in `0.1.0`. Adding another AI CLI is a single new file
+implementing the `ToolAdapter` interface in `src/tools/` — see
+[CONTRIBUTING.md](../CONTRIBUTING.md) if you want to add one (Gemini CLI
+and OpenCode are natural community contributions using the same pattern).
 
 ### `brg tools list`
 
@@ -187,16 +206,14 @@ authenticated. Read-only — makes no changes.
 ```console
 $ brg tools list
 claude     Claude Code    installed, authenticated
-gemini     Gemini CLI     not installed
 codex      Codex          not installed
-opencode   OpenCode       not installed
 ```
 
 ### `brg init`
 
 Creates a `.brg/` directory in the current working directory:
 `context.md` (with a starter header), `config.yaml` (with the default
-`contextStrategy: manual`), and an empty `sessions/` directory.
+`contextStrategy: ai-assisted`), and an empty `sessions/` directory.
 
 **Idempotent** — if `.brg/` already exists, it does nothing and tells
 you so, rather than overwriting your context or config.
@@ -219,28 +236,31 @@ $ brg init
 
 ### `brg switch <tool>`
 
-Reads `.brg/context.md` (unless `--fresh` is passed), then hands off
-full terminal control to `<tool>` in [handoff mode](#handoff-mode-vs-wrapper-mode)
-— `brg` exits once the target tool starts. `<tool>` must be one of the
-names from `brg tools list` (`claude`, `gemini`, `codex`, `opencode`),
-and must already be installed (run `brg setup` first if not).
+Unless `--fresh` is passed, first auto-checkpoints against whichever tool
+your last session record belongs to (see
+[Handoff mode vs. wrapper mode](#handoff-mode-vs-wrapper-mode)) — a
+failure here is logged and never blocks the switch. Then reads
+`.brg/context.md` and hands off full terminal control to `<tool>` in
+handoff mode — `brg` exits once the target tool starts. `<tool>` must be
+one of the names from `brg tools list` (`claude`, `codex`), and must
+already be installed (run `brg setup` first if not).
 
 **Flags:**
 
 | Flag | Default if omitted | Meaning |
 |---|---|---|
-| `-f, --fresh` | off | Skip reading `context.md` entirely and start the target tool with a completely clean/empty session — use this when you deliberately don't want prior context carried over. |
+| `-f, --fresh` | off | Skip the auto-checkpoint and reading `context.md` entirely, and start the target tool with a completely clean/empty session — use this when you deliberately don't want prior context carried over. |
 
 **Errors you might see:**
 
 ```console
 $ brg switch nosuchtool
-brg: unknown tool "nosuchtool". Known tools: claude, gemini, codex, opencode
+brg: unknown tool "nosuchtool". Known tools: claude, codex
 ```
 
 ```console
-$ brg switch gemini
-brg: Gemini CLI is not installed. Run "brg setup" first.
+$ brg switch codex
+brg: Codex is not installed. Run "brg setup" first.
 ```
 
 **Example (successful handoff):** once launched, `brg` disappears from
@@ -266,9 +286,13 @@ $ brg checkpoint "wired up the auth middleware" --tool claude
 ✓ Checkpoint saved.
 ```
 
-This appends a line like the one below to `context.md` — when the
-project is a git repo, the manual context strategy enriches it with the
-current branch and a diffstat for free (see [Configuration](#configuration)):
+With the default `ai-assisted` strategy and Claude Code available, this
+tries `claude -p ... --continue` first and appends its summary. If that's
+unavailable, it falls back to a raw excerpt from Claude Code's own
+transcript file. If neither is available, it falls back to a line like
+the one below — the same output `contextStrategy: manual` always
+produces, enriched with the current git branch and diffstat for free
+when the project is a git repo (see [Configuration](#configuration)):
 
 ```
 - [2026-08-10T11:53:41.179Z] claude: wired up the auth middleware (main, 3 files changed, 42 insertions(+), 5 deletions(-))
@@ -292,7 +316,7 @@ Requires `.brg/` to exist.
 
 ```console
 $ brg log
-2026-08-10T11:53:42.315Z  gemini  moved to gemini for the refactor
+2026-08-10T11:53:42.315Z  codex  moved to codex for the refactor
 2026-08-10T11:53:41.187Z  unknown  first pass on the parser
 ```
 
@@ -348,7 +372,7 @@ $ brg context show
 Rolling summary — what's been done, key decisions, open threads.
 
 - [2026-08-10T11:53:41.179Z] claude: first pass on the parser
-- [2026-08-10T11:53:42.315Z] gemini: moved to gemini for the refactor
+- [2026-08-10T11:53:42.315Z] codex: moved to codex for the refactor
 ```
 
 ### `brg --version` / `brg --help`
@@ -360,26 +384,27 @@ prints flags for that command specifically.
 
 ## Common workflows
 
-### Switching mid-project from Claude Code to Gemini CLI
+### Switching mid-project from Claude Code to Codex
 
 You've been working in Claude Code, made progress, and want to hand the
-same project off to Gemini CLI without re-explaining anything.
+same project off to Codex without re-explaining anything.
 
 ```bash
-# 1. Checkpoint where you left off, before switching
-brg checkpoint "finished the API routes, next: wire up the frontend" --tool claude
-
-# 2. Switch — brg reads context.md and hands it to gemini, then exits
-brg switch gemini
+# Just switch — brg auto-checkpoints against Claude Code first, then
+# reads context.md and hands it to codex, then exits
+brg switch codex
 ```
 
-Gemini CLI starts with your `context.md` — including the checkpoint you
-just wrote and everything before it — as its initial context. When
-you're done in Gemini and ready to switch again, checkpoint first so the
-next tool (or your future self) has the same continuity:
+You don't have to checkpoint manually first — `brg switch` does it for
+you, trying Claude Code's own session summary and falling back to its
+raw transcript if that's unavailable (e.g. Claude Code just hit a quota
+limit, which is exactly the moment you're likely to be switching away
+from it). Codex starts with the resulting `context.md` as its initial
+context. A manual checkpoint is still worth writing at any point you
+want a specific message recorded rather than an auto-generated one:
 
 ```bash
-brg checkpoint "frontend wired up, tests still failing on auth" --tool gemini
+brg checkpoint "frontend wired up, tests still failing on auth" --tool codex
 brg switch claude
 ```
 
@@ -417,8 +442,8 @@ show`) outside an initialized project. Run `brg init` in that directory
 first. `brg status` is the one exception — it reports "Not a brg
 project" instead of erroring, so it's always safe to run.
 
-**`brg: unknown tool "<name>". Known tools: claude, gemini, codex, opencode`**
-You passed a tool name to `brg switch` that isn't one of the four
+**`brg: unknown tool "<name>". Known tools: claude, codex`**
+You passed a tool name to `brg switch` that isn't one of the two
 registered adapters. Check spelling — it's the short name (`claude`, not
 `Claude Code`).
 
@@ -434,11 +459,12 @@ that tool has changed where it stores credentials since this version of
 `brg` was published, detection can go stale — check the relevant
 `src/tools/<name>.ts` adapter in the repo, or open an issue.
 
-**Setting `contextStrategy: ai-assisted` in `config.yaml` crashes `brg checkpoint`**
-This is expected for now — `ai-assisted` is a stub for a planned future
-feature (see [ROADMAP.md](../ROADMAP.md)) and intentionally throws rather
-than silently doing nothing. Set `contextStrategy` back to `manual` in
-`.brg/config.yaml`.
+**`brg checkpoint` seems slow, or I don't want it shelling out to my AI CLI**
+That's the `ai-assisted` strategy's tier 1 (`--continue`/`resume --last`)
+running — it can take a few seconds since it's a real call to the tool.
+Set `contextStrategy: manual` in `.brg/config.yaml` if you'd rather
+checkpoints stay instant and fully offline, at the cost of losing the
+richer auto-generated summaries.
 
 **`npm install -g brg-cli` says the command isn't found afterward**
 Make sure npm's global bin directory is on your `PATH`. Run `npm config
@@ -454,9 +480,9 @@ usage changes.
 **My AI CLI's own login/auth is failing**
 `brg` doesn't handle authentication itself — `brg setup`/`brg switch`
 shell out directly to each tool's own login flow (`claude login`,
-`gemini auth login`, etc.). If login itself is failing, that's an issue
-with the underlying tool's CLI or your account, not with `brg` — check
-that tool's own documentation.
+`codex login`). If login itself is failing, that's an issue with the
+underlying tool's CLI or your account, not with `brg` — check that
+tool's own documentation.
 
 ## Uninstall / reset
 
@@ -478,6 +504,5 @@ for it yet — `.brg/` is a plain directory, so removing it is the same as
 deleting any other folder.
 
 **Full reset**: run both of the above. This does not touch any AI CLI
-`brg` launched (Claude Code, Gemini CLI, etc.) — those are separate tools
-with their own install/uninstall/credentials, unaffected by removing
-`brg`.
+`brg` launched (Claude Code, Codex) — those are separate tools with their
+own install/uninstall/credentials, unaffected by removing `brg`.

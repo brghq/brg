@@ -24,7 +24,7 @@ labels: bug
 - `brg` version: (run `brg --version`)
 - OS: (Windows / macOS / Linux + version)
 - Node version: (run `node --version`)
-- AI tool involved (if relevant): (Claude Code / Gemini CLI / Codex / other)
+- AI tool involved (if relevant): (Claude Code / Codex / other)
 
 ## Additional context
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { initCommand } from '../src/commands/init.js';
 import { checkpointCommand } from '../src/commands/checkpoint.js';
 import { listSessions } from '../src/core/session.js';
+import { writeConfig } from '../src/core/config.js';
 
 describe('brg checkpoint', () => {
   let cwd: string;
@@ -15,6 +16,11 @@ describe('brg checkpoint', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brg-checkpoint-'));
     process.chdir(tmpDir);
     initCommand();
+    // Force the manual strategy here: these tests exercise checkpoint
+    // mechanics (session file shape, context.md append), not the
+    // ai-assisted tiering — and manual is the only strategy guaranteed not
+    // to shell out to a real, possibly-installed-and-authenticated CLI.
+    writeConfig({ contextStrategy: 'manual' });
   });
 
   afterEach(() => {
@@ -37,10 +43,10 @@ describe('brg checkpoint', () => {
   });
 
   it('appends the checkpoint line to context.md', async () => {
-    await checkpointCommand('second message', { tool: 'gemini' });
+    await checkpointCommand('second message', { tool: 'codex' });
 
     const content = fs.readFileSync(path.join(tmpDir, '.brg', 'context.md'), 'utf8');
-    expect(content).toContain('gemini: second message');
+    expect(content).toContain('codex: second message');
   });
 
   it('errors without crashing when .brg/ does not exist', async () => {

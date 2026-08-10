@@ -1,5 +1,4 @@
-import { appendCheckpoint } from '../core/context.js';
-import { writeSession } from '../core/session.js';
+import { performCheckpoint } from '../core/checkpoint.js';
 import { readConfig } from '../core/config.js';
 import { getAdapter } from '../tools/registry.js';
 import { isInitialized } from '../core/config.js';
@@ -35,15 +34,7 @@ export async function checkpointCommand(message: string, options: CheckpointOpti
   const toolName = options.tool ?? readConfig().defaultTool ?? 'unknown';
   const adapter = getAdapter(toolName) ?? unregisteredToolStub(toolName);
 
-  const line = await appendCheckpoint(message, adapter);
-
-  const timestamp = new Date().toISOString();
-  writeSession({
-    timestamp,
-    tool: toolName,
-    message,
-    contextSnapshot: line,
-  });
+  await performCheckpoint(message, adapter);
 
   console.log(`${amber('✓')} Checkpoint saved.`);
 }

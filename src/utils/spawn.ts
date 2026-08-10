@@ -2,7 +2,7 @@ import spawn from 'cross-spawn';
 
 // Node's built-in child_process.spawn talks directly to Windows'
 // CreateProcess, which can't execute the .cmd/.ps1 shims npm uses for
-// globally-installed CLIs (claude, gemini, codex, opencode, npm itself) —
+// globally-installed CLIs (claude, codex, npm itself) —
 // it fails with ENOENT even though the shim is right there on PATH.
 // cross-spawn resolves those shims correctly (and safely quotes args)
 // on Windows while behaving like a plain spawn everywhere else.
