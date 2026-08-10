@@ -12,9 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `ROADMAP.md` outlining Phase 1 (shipped), Phase 2/3 (planned), and
   exploratory ideas.
 
+### Added
+- `docs/USER_GUIDE.md`: full command reference, concepts, configuration,
+  common workflows, troubleshooting/FAQ, and uninstall instructions.
+
 ### Changed
 - README rewritten: badges, real captured CLI output, full command
   reference table, "how it works" section.
+- CI now skips the full test matrix on docs-only changes (`**.md`,
+  `docs/**`, `assets/**`, `LICENSE`) via `paths-ignore`.
+
+### Fixed
+- A checkpoint test left the process's cwd inside a directory it then
+  tried to delete, which only failed on Windows (`EBUSY`) since POSIX
+  allows removing your own cwd but Windows doesn't — CI was red on
+  windows-latest as a result.
 
 ## [0.1.0] - 2026-08-10
 
