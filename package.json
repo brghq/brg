@@ -1,6 +1,6 @@
 {
   "name": "brg-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Never explain yourself twice.",
   "license": "MIT",
   "type": "module",

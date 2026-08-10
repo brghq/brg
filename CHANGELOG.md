@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-11
+
 ### Added
 - Real `ai-assisted` context strategy, replacing the previous stub: tries
   the active tool's own session summary (`--continue`/`resume --last`)
