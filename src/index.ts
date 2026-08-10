@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT
+import { Command } from 'commander';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { setupCommand } from './commands/setup.js';
+import { toolsListCommand } from './commands/tools.js';
+import { initCommand } from './commands/init.js';
+import { switchCommand } from './commands/switch.js';
+import { checkpointCommand } from './commands/checkpoint.js';
+import { logCommand } from './commands/log.js';
+import { statusCommand } from './commands/status.js';
+import { contextShowCommand } from './commands/context.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+
+export function buildProgram(): Command {
+  const program = new Command();
+
+  program
+    .name('brg')
+    .description('Never explain yourself twice. Switch between AI coding CLIs without losing context.')
+    .version(pkg.version);
+
+  program
+    .command('setup')
+    .description('Interactive wizard to install/authenticate supported AI CLIs')
+    .action(setupCommand);
+
+  const tools = program.command('tools').description('Manage registered AI CLIs');
+  tools
+    .command('list')
+    .description('List which AI CLIs are registered/installed')
+    .action(toolsListCommand);
+
+  program
+    .command('init')
+    .description('Create a .brg/ directory in the current project')
+    .action(initCommand);
+
+  program
+    .command('switch <tool>')
+    .description('Hand off to an AI CLI, carrying project context with you')
+    .option('-f, --fresh', 'skip context, start a completely clean session')
+    .action(switchCommand);
+
+  program
+    .command('checkpoint <message>')
+    .description('Snapshot current state with a message, like git commit')
+    .option('--tool <name>', 'tool to attribute this checkpoint to')
+    .action(checkpointCommand);
+
+  program
+    .command('log')
+    .description('Print a timeline of checkpoints, most recent first')
+    .action(logCommand);
+
+  program
+    .command('status')
+    .description('Show active tool, last checkpoint, context size, and today\'s session count')
+    .action(statusCommand);
+
+  const context = program.command('context').description('Inspect project context');
+  context
+    .command('show')
+    .description('Print the current .brg/context.md to stdout')
+    .action(contextShowCommand);
+
+  return program;
+}
+

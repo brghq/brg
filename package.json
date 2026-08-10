@@ -1,0 +1,57 @@
+{
+  "name": "brg-cli",
+  "version": "0.1.0",
+  "description": "Never explain yourself twice.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "brg": "./bin/brg.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brghq/brg.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brghq/brg/issues"
+  },
+  "homepage": "https://github.com/brghq/brg#readme",
+  "keywords": [
+    "cli",
+    "ai",
+    "claude",
+    "gemini",
+    "codex",
+    "developer-tools"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "js-yaml": "^4.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.0"
+  }
+}
