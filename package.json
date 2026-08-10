@@ -1,6 +1,6 @@
 {
   "name": "brg-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Never explain yourself twice.",
   "license": "MIT",
   "type": "module",
@@ -41,10 +41,12 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
+    "cross-spawn": "^7.0.6",
     "js-yaml": "^4.1.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",

@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-10
+
 ### Added
 - Project logo and brand assets (`assets/`).
 - `ROADMAP.md` outlining Phase 1 (shipped), Phase 2/3 (planned), and
   exploratory ideas.
-
-### Added
 - `docs/USER_GUIDE.md`: full command reference, concepts, configuration,
   common workflows, troubleshooting/FAQ, and uninstall instructions.
 
@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `docs/**`, `assets/**`, `LICENSE`) via `paths-ignore`.
 
 ### Fixed
+- **Windows: `brg switch` and `brg setup`'s install/login steps failed
+  with `spawn <tool> ENOENT`**, even when `brg tools list` correctly
+  showed the tool as installed. npm installs global CLIs on Windows as
+  `.cmd`/`.ps1` shims, which Node's built-in `child_process.spawn` can't
+  execute directly (it talks straight to `CreateProcess`, which only runs
+  real executables) — only shell-aware lookups like `where` (used for
+  detection) could find them. Switched to `cross-spawn`, which resolves
+  Windows shims correctly. This affects every platform's install/login
+  path too (`npm install -g ...`, `claude login`, etc.), not just
+  `switch`.
 - A checkpoint test left the process's cwd inside a directory it then
   tried to delete, which only failed on Windows (`EBUSY`) since POSIX
   allows removing your own cwd but Windows doesn't — CI was red on

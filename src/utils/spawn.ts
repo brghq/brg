@@ -1,4 +1,11 @@
-import { spawn, spawnSync } from 'node:child_process';
+import spawn from 'cross-spawn';
+
+// Node's built-in child_process.spawn talks directly to Windows'
+// CreateProcess, which can't execute the .cmd/.ps1 shims npm uses for
+// globally-installed CLIs (claude, gemini, codex, opencode, npm itself) —
+// it fails with ENOENT even though the shim is right there on PATH.
+// cross-spawn resolves those shims correctly (and safely quotes args)
+// on Windows while behaving like a plain spawn everywhere else.
 
 /**
  * Hands off the terminal to `command` with full stdio inheritance, then
@@ -23,6 +30,6 @@ export function handoff(command: string, args: string[] = []): void {
  * flows the user needs to interact with) and returns its exit code.
  */
 export function runInteractive(command: string, args: string[] = []): number {
-  const result = spawnSync(command, args, { stdio: 'inherit' });
+  const result = spawn.sync(command, args, { stdio: 'inherit' });
   return result.status ?? 1;
 }
