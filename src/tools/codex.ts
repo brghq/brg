@@ -82,8 +82,8 @@ function sessionMatchesCwd(filePath: string, cwd: string): boolean {
     const buffer = Buffer.alloc(4096);
     const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, 0);
     const prefix = buffer.toString('utf8', 0, bytesRead);
-    if (!prefix.includes('"type":"session_meta"')) return false;
-    const match = prefix.match(/"cwd":"((?:[^"\\]|\\.)*)"/);
+    if (!/"type"\s*:\s*"session_meta"/.test(prefix)) return false;
+    const match = prefix.match(/"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (!match) return false;
     return JSON.parse(`"${match[1]}"`) === cwd;
   } catch {

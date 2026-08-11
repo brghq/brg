@@ -8,6 +8,13 @@ of Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+- Codex's cwd-scoping check (`sessionMatchesCwd`) now tolerates spaced
+  JSON formatting (`"cwd": "..."` as well as `"cwd":"..."`), found during
+  a live sandbox verification pass against synthetic session files —
+  real Codex output is compact JSON so this wasn't user-visible, but the
+  strict substring/regex match was an unnecessary landmine.
+
 ## [26.8.3] - 2026-08-11
 
 ### Changed
