@@ -30,9 +30,16 @@ export function readConfig(cwd: string = process.cwd()): BrgConfig {
   if (!fs.existsSync(file)) {
     return { ...DEFAULT_CONFIG };
   }
-  const raw = fs.readFileSync(file, 'utf8');
-  const parsed = (yaml.load(raw) as Partial<BrgConfig>) ?? {};
-  return { ...DEFAULT_CONFIG, ...parsed };
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    const parsed = (yaml.load(raw) as Partial<BrgConfig>) ?? {};
+    return { ...DEFAULT_CONFIG, ...parsed };
+  } catch {
+    // A hand-edited or partially-written config.yaml shouldn't take down
+    // every command that reads config — fall back to defaults instead.
+    console.error(`brg: ${file} is invalid YAML, using defaults`);
+    return { ...DEFAULT_CONFIG };
+  }
 }
 
 export function writeConfig(config: BrgConfig, cwd: string = process.cwd()): void {

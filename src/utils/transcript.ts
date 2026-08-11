@@ -4,11 +4,18 @@ import type { TranscriptExtract } from '../tools/types.js';
 
 /**
  * Recursively finds the most recently modified file with the given
- * extension under `rootDir`. Returns null if the directory doesn't exist
- * or contains no matching files — never throws.
+ * extension under `rootDir`. If `predicate` is given, candidates are
+ * checked newest-first and the first one it accepts wins — used to scope
+ * to a specific project's session when a tool's transcripts aren't already
+ * partitioned by cwd on disk. Returns null if the directory doesn't exist
+ * or no matching file is found — never throws.
  */
-export function findMostRecentFile(rootDir: string, extension: string): string | null {
-  let best: { file: string; mtimeMs: number } | null = null;
+export function findMostRecentFile(
+  rootDir: string,
+  extension: string,
+  predicate?: (filePath: string) => boolean,
+): string | null {
+  const candidates: { file: string; mtimeMs: number }[] = [];
 
   function walk(dir: string): void {
     let entries: fs.Dirent[];
@@ -23,10 +30,7 @@ export function findMostRecentFile(rootDir: string, extension: string): string |
         walk(full);
       } else if (entry.isFile() && entry.name.endsWith(extension)) {
         try {
-          const mtimeMs = fs.statSync(full).mtimeMs;
-          if (!best || mtimeMs > best.mtimeMs) {
-            best = { file: full, mtimeMs };
-          }
+          candidates.push({ file: full, mtimeMs: fs.statSync(full).mtimeMs });
         } catch {
           // skip unreadable file
         }
@@ -35,17 +39,29 @@ export function findMostRecentFile(rootDir: string, extension: string): string |
   }
 
   walk(rootDir);
-  return best ? (best as { file: string; mtimeMs: number }).file : null;
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  for (const candidate of candidates) {
+    if (!predicate || predicate(candidate.file)) {
+      return candidate.file;
+    }
+  }
+  return null;
 }
 
 /**
  * Best-effort JSONL transcript reader. Each line is parsed independently;
  * lines that aren't valid JSON, or don't match a recognized shape, are
- * skipped rather than failing the whole read. Recognizes the two shapes
- * both Claude Code's and Codex's transcript formats use:
- *   { message: { role, content } }  where content is a string or an
- *   array of { type: 'text', text } parts.
- * Returns null only if the file itself can't be read.
+ * skipped rather than failing the whole read. Recognizes both on-disk
+ * transcript shapes:
+ *   - Claude Code: { message: { role, content } }, content a string or an
+ *     array of { type: 'text', text } parts.
+ *   - Codex:       { type: 'response_item', payload: { type: 'message',
+ *     role, content } }, content an array of
+ *     { type: 'input_text' | 'output_text', text } parts.
+ * Keeps the END of the conversation, not the start — a handoff needs the
+ * most recent decisions and state, not the opening prompt. Returns null
+ * only if the file itself can't be read.
  */
 export function extractTextFromJsonl(filePath: string, maxChars: number): TranscriptExtract | null {
   let raw: string;
@@ -56,9 +72,6 @@ export function extractTextFromJsonl(filePath: string, maxChars: number): Transc
   }
 
   const lines: string[] = [];
-  let total = 0;
-  let truncated = false;
-
   for (const rawLine of raw.split('\n')) {
     if (!rawLine.trim()) continue;
     let parsed: unknown;
@@ -69,27 +82,52 @@ export function extractTextFromJsonl(filePath: string, maxChars: number): Transc
     }
 
     const line = extractLineText(parsed);
-    if (!line) continue;
+    if (line) lines.push(line);
+  }
 
+  const kept: string[] = [];
+  let total = 0;
+  let truncated = false;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
     if (total + line.length > maxChars) {
       truncated = true;
       break;
     }
-    lines.push(line);
+    kept.unshift(line);
     total += line.length;
   }
 
-  return { text: lines.join('\n'), truncated, sourcePath: filePath };
+  return { text: kept.join('\n'), truncated, sourcePath: filePath };
 }
 
 function extractLineText(parsed: unknown): string | null {
   if (typeof parsed !== 'object' || parsed === null) return null;
-  const message = (parsed as Record<string, unknown>).message;
-  if (typeof message !== 'object' || message === null) return null;
+  const obj = parsed as Record<string, unknown>;
 
-  const role = (message as Record<string, unknown>).role;
-  const content = (message as Record<string, unknown>).content;
-  if (typeof role !== 'string') return null;
+  if (typeof obj.message === 'object' && obj.message !== null) {
+    return extractRoleContent(obj.message as Record<string, unknown>, ['text']);
+  }
+
+  if (
+    obj.type === 'response_item' &&
+    typeof obj.payload === 'object' &&
+    obj.payload !== null &&
+    (obj.payload as Record<string, unknown>).type === 'message'
+  ) {
+    return extractRoleContent(obj.payload as Record<string, unknown>, ['input_text', 'output_text']);
+  }
+
+  return null;
+}
+
+/** Roles that carry framework/system noise rather than conversation content. */
+const NOISE_ROLES = new Set(['developer', 'system']);
+
+function extractRoleContent(container: Record<string, unknown>, textTypes: string[]): string | null {
+  const role = container.role;
+  const content = container.content;
+  if (typeof role !== 'string' || NOISE_ROLES.has(role)) return null;
 
   let text: string | null = null;
   if (typeof content === 'string') {
@@ -100,7 +138,7 @@ function extractLineText(parsed: unknown): string | null {
         return (
           typeof part === 'object' &&
           part !== null &&
-          (part as Record<string, unknown>).type === 'text' &&
+          textTypes.includes((part as Record<string, unknown>).type as string) &&
           typeof (part as Record<string, unknown>).text === 'string'
         );
       })

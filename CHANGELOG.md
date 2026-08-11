@@ -2,10 +2,44 @@
 
 All notable changes to `brg` will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+As of `26.8.3`, this project uses calendar versioning (`YY.M.patch`) instead
+of Semantic Versioning.
 
 ## [Unreleased]
+
+## [26.8.3] - 2026-08-11
+
+### Changed
+- Adopted calendar versioning (`YY.M.patch`, e.g. `26.8.3`) in place of
+  semver going forward.
+
+### Fixed
+- Explicit active-tool tracking (`config.yaml`'s `defaultTool`, set on
+  every `brg switch`) replaces inferring "the tool being left" from the
+  last checkpoint's `tool` field. The old approach misattributed
+  auto-checkpoints across repeated switches (e.g. Claude → Codex → Claude
+  would re-checkpoint against Claude instead of Codex the second time).
+- `ai-assisted`'s local-transcript fallback (tier 2, the one requiring no
+  auth/quota) now actually works for Codex: it previously expected Claude
+  Code's `{ message: { role, content } }` JSONL shape only, so every
+  Codex transcript line was silently skipped and checkpoints always fell
+  through to the plain manual line.
+- Transcript extraction now keeps the *end* of a session, not the start —
+  a handoff needs the most recent decisions and state, not the opening
+  prompt.
+- Codex transcript lookup is now scoped to the current project's `cwd`
+  (parsed from each session's own `session_meta` record) instead of
+  picking the most recently modified session file process-wide, which
+  could pull an unrelated project's conversation into context.
+- `readContextForHandoff` now trims at checkpoint-entry boundaries instead
+  of a raw character offset, so a truncated handoff never starts mid-line
+  through a transcript excerpt.
+- `listSessions`/`readConfig` no longer crash every command (status, log,
+  switch) over one corrupted session file or invalid `config.yaml` — bad
+  data is now skipped/defaulted with a warning instead of throwing.
+- Session filenames now include a random suffix to avoid silently
+  overwriting another checkpoint written in the same millisecond.
 
 ## [0.1.2] - 2026-08-11
 

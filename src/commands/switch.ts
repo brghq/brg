@@ -1,8 +1,7 @@
 import { getAdapter, listAdapters } from '../tools/registry.js';
 import { readContextForHandoff } from '../core/context.js';
 import { performCheckpoint } from '../core/checkpoint.js';
-import { listSessions } from '../core/session.js';
-import { isInitialized } from '../core/config.js';
+import { isInitialized, readConfig, writeConfig } from '../core/config.js';
 import { dim } from '../utils/style.js';
 
 export interface SwitchOptions {
@@ -35,18 +34,27 @@ export async function switchCommand(toolName: string, options: SwitchOptions): P
     console.log(dim('(no context.md content yet — starting with an empty context)'));
   }
 
+  if (isInitialized()) {
+    writeConfig({ ...readConfig(), defaultTool: tool.name });
+  }
+
   tool.launch(contextText);
 }
 
 // Captures whatever the previously-active tool was doing before handing off,
 // so the user never has to remember to `brg checkpoint` right before a
-// forced switch. Pulls from the tool used in the last session record (the
-// one being switched *away from*), not the destination tool. Never blocks
+// forced switch. Pulls from config's `defaultTool` — the explicit "which
+// tool is currently active" record that every switch updates — not from
+// the last checkpoint's tool. Using the last checkpoint would misattribute:
+// after a Claude -> Codex auto-checkpoint (recorded under "claude", the
+// tool being left), the newest session record still says "claude" even
+// once Codex is the one actually active, so a later Codex -> Claude switch
+// would wrongly re-checkpoint against Claude instead of Codex. Never blocks
 // the switch itself — a failure here is logged and swallowed.
 async function autoCheckpointBeforeSwitch(destinationDisplayName: string): Promise<void> {
   try {
-    const lastTool = listSessions().at(-1)?.tool;
-    const sourceAdapter = lastTool ? getAdapter(lastTool) : undefined;
+    const activeToolName = readConfig().defaultTool;
+    const sourceAdapter = activeToolName ? getAdapter(activeToolName) : undefined;
     if (!sourceAdapter) return;
     await performCheckpoint(`auto-checkpoint before switching to ${destinationDisplayName}`, sourceAdapter);
   } catch (err) {

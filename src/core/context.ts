@@ -43,15 +43,37 @@ export function readContext(cwd: string = process.cwd()): string {
  * Same content as `readContext`, but capped to the most recent
  * MAX_HANDOFF_CHARS for injection into a tool's initial prompt. The file
  * on disk (and `brg context show`) is never truncated — only what gets
- * handed off.
+ * handed off. Trims at entry boundaries (via `parseEntries`) rather than
+ * a raw character offset, so the handoff never starts mid-line through a
+ * transcript excerpt or a `<details>` block — always whole checkpoint
+ * entries, most recent first, until the budget runs out.
  */
 export function readContextForHandoff(cwd: string = process.cwd()): string {
   const content = readContext(cwd);
   if (content.length <= MAX_HANDOFF_CHARS) {
     return content;
   }
-  const trimmed = content.slice(content.length - MAX_HANDOFF_CHARS);
-  return `[earlier context truncated]\n${trimmed}`;
+
+  const { header, entries } = parseEntries(content);
+  const kept: string[] = [];
+  let total = 0;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (total + entry.length + 1 > MAX_HANDOFF_CHARS) break;
+    kept.unshift(entry);
+    total += entry.length + 1;
+  }
+
+  // A single entry (e.g. one huge transcript excerpt) can still exceed the
+  // whole budget on its own — keep its own tail rather than dropping the
+  // most recent checkpoint entirely.
+  if (kept.length === 0 && entries.length > 0) {
+    kept.push(entries[entries.length - 1].slice(-MAX_HANDOFF_CHARS));
+  }
+
+  const headerBlock = header.trim().length > 0 ? `${header.replace(/\n+$/, '')}\n\n` : '';
+  const note = kept.length < entries.length ? '[earlier context truncated]\n' : '';
+  return `${headerBlock}${note}${kept.join('\n')}\n`;
 }
 
 /**

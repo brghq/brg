@@ -37,7 +37,7 @@ export const aiAssisted: ContextStrategy = {
     if (tool.getLatestTranscript) {
       const extract = tool.getLatestTranscript(process.cwd());
       if (extract && extract.text.trim()) {
-        const excerpt = extract.text.slice(0, TRANSCRIPT_EXCERPT_CHARS);
+        const excerpt = extract.text.slice(-TRANSCRIPT_EXCERPT_CHARS);
         const truncated = extract.truncated || extract.text.length > TRANSCRIPT_EXCERPT_CHARS;
         const note = truncated ? ' (truncated)' : '';
         return (

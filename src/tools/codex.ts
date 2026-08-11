@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { ToolAdapter } from './types.js';
@@ -32,13 +33,14 @@ export const codex: ToolAdapter = {
     handoff('codex', contextText ? [contextText] : []);
   },
 
-  getLatestTranscript(_cwd) {
+  getLatestTranscript(cwd) {
     try {
       // Codex sessions are partitioned by date (~/.codex/sessions/YYYY/MM/DD/),
-      // not by project — unlike Claude Code, there's no per-cwd directory to
-      // scope into, so this picks the most recent Codex session process-wide.
+      // not by project, so pick the most recent session file whose own
+      // recorded cwd matches this project — otherwise a session from an
+      // unrelated repo could leak into this project's context.
       const sessionsRoot = path.join(os.homedir(), '.codex', 'sessions');
-      const file = findMostRecentFile(sessionsRoot, '.jsonl');
+      const file = findMostRecentFile(sessionsRoot, '.jsonl', (f) => sessionMatchesCwd(f, cwd));
       if (!file) return null;
       return extractTextFromJsonl(file, MAX_TRANSCRIPT_CHARS);
     } catch {
@@ -60,3 +62,33 @@ export const codex: ToolAdapter = {
     }
   },
 };
+
+/**
+ * Checks a session file's own `session_meta` record (always the first
+ * line) for a `cwd` matching this project. `session_meta` also embeds the
+ * full system-prompt text inline, which can push that single line to
+ * tens of KB, so this only reads a bounded prefix and regex-matches the
+ * `cwd` field rather than parsing the whole line as JSON — `cwd` is
+ * written before the large fields, so it's reliably within the prefix.
+ */
+function sessionMatchesCwd(filePath: string, cwd: string): boolean {
+  let fd: number;
+  try {
+    fd = fs.openSync(filePath, 'r');
+  } catch {
+    return false;
+  }
+  try {
+    const buffer = Buffer.alloc(4096);
+    const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const prefix = buffer.toString('utf8', 0, bytesRead);
+    if (!prefix.includes('"type":"session_meta"')) return false;
+    const match = prefix.match(/"cwd":"((?:[^"\\]|\\.)*)"/);
+    if (!match) return false;
+    return JSON.parse(`"${match[1]}"`) === cwd;
+  } catch {
+    return false;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
