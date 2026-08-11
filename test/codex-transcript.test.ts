@@ -35,7 +35,7 @@ describe('codex adapter transcript scoping', () => {
 
   function writeSession(file: string, cwd: string, marker: string, spaced = false): void {
     const line1 = spaced
-      ? `{"type": "session_meta", "payload": {"cwd": "${cwd}"}}`
+      ? `{"type": "session_meta", "payload": {"cwd": ${JSON.stringify(cwd)}}}`
       : JSON.stringify({ type: 'session_meta', payload: { cwd } });
     const line2 = spaced
       ? `{"type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "${marker}"}]}}`
