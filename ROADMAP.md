@@ -49,10 +49,13 @@ tracks status, the linked doc is the source of truth for design.
   (branch-vs-branch only; checkpoint-level diff via history replay is a
   later extension). `brg show <checkpoint-id>` inspects a single
   checkpoint — **not started**.
-- `brg merge` — union facts automatically, flag `(subject, relation)`
-  conflicts for human-in-the-loop resolution by default (LLM-arbiter
-  auto-resolve is opt-in, never default), write a two-parent merge
-  checkpoint. **Status: not started.**
+- `brg merge <source>` — union facts automatically, flag `(subject,
+  relation)` conflicts for human-in-the-loop resolution by default
+  (`--auto` tries the active tool as an LLM arbiter first, falling back
+  to human resolution per-conflict if unavailable/unparseable), writes a
+  two-parent merge checkpoint on the currently checked-out branch.
+  **Status: shipped on `feature/phase-2`** (context-only — does not run
+  `git merge`; run that yourself for the code side).
 - `brg log --graph` — CLI rendering of the branch graph over the same
   data the dashboard and export reuse. **Status: not started.**
 - MCP server (`context_search`, `context_commit`, `context_diff`,

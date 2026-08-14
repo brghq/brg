@@ -14,6 +14,7 @@ import { contextShowCommand } from './commands/context.js';
 import { branchCommand } from './commands/branch.js';
 import { checkoutCommand } from './commands/checkout.js';
 import { diffCommand } from './commands/diff.js';
+import { mergeCommand } from './commands/merge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -85,6 +86,12 @@ export function buildProgram(): Command {
     .command('diff <branchA> <branchB>')
     .description('Show fact differences between two branches')
     .action(diffCommand);
+
+  program
+    .command('merge <source>')
+    .description('Merge a branch\'s context into the currently checked-out branch')
+    .option('--auto', 'try the active tool as an LLM arbiter for conflicts before asking interactively')
+    .action(mergeCommand);
 
   return program;
 }

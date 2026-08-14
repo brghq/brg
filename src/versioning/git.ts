@@ -19,6 +19,22 @@ export function currentGitSha(cwd: string = process.cwd()): string | null {
   }
 }
 
+export function currentGitBranch(cwd: string = process.cwd()): string | null {
+  try {
+    const name = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+    // Detached HEAD: rev-parse --abbrev-ref returns the literal "HEAD",
+    // which isn't a real branch name — callers need null, not that string.
+    return name && name !== 'HEAD' ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 export function gitBranchExists(name: string, cwd: string = process.cwd()): boolean {
   try {
     execFileSync('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${name}`], {

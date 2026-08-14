@@ -26,6 +26,13 @@ of Semantic Versioning.
   yet.
 - `brg diff <branchA> <branchB>` — pure structural diff between two
   branches' fact sets (added/removed/changed triples), no LLM calls.
+- `brg merge <source>` — merges a branch's brg context into the currently
+  checked-out branch (context-only, no `git merge` involved). Union
+  merges automatically; candidate conflicts (same subject+relation,
+  different object) go through interactive per-conflict resolution by
+  default, or `--auto` to try the active tool as an LLM arbiter first
+  (falling back to interactive per-conflict if it can't resolve one).
+  Writes a two-parent merge checkpoint on success.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",
