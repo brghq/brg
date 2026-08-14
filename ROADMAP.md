@@ -38,6 +38,16 @@ surface, and build sequence). It still ships one piece at a time, each
 scoped in its own discussion before work starts — this roadmap entry
 tracks status, the linked doc is the source of truth for design.
 
+**Known gap:** `brg checkpoint` (Phase 1) still only writes
+`context.md`/`sessions/*.json` — it does not call
+`versioning/checkpoint.ts`'s `recordCheckpoint`, so nothing in the CLI
+today creates a brg branch's *first* checkpoint object except `brg
+merge` itself (which requires both branches to already have one). Until
+this is wired up, `brg diff`/`brg merge`/`brg log --graph` have nothing
+real to work with in normal use. Deliberately left unresolved so far —
+module 1 flagged it as "a decision for whoever adds versioning to the
+`brg checkpoint` command," not something to assume.
+
 - `brg branch <name>` / `brg checkout <name>` — `brg branch` always
   creates the brg context branch first; a matching git branch is optional
   (asked interactively afterward, skippable, auto-skipped outside a git
@@ -61,8 +71,12 @@ tracks status, the linked doc is the source of truth for design.
   (`.brg/refs/active` — not necessarily the checked-out git branch).
   **Status: shipped on `feature/phase-2`** (context-only — does not run
   `git merge`; run that yourself for the code side).
-- `brg log --graph` — CLI rendering of the branch graph over the same
-  data the dashboard and export reuse. **Status: not started.**
+- `brg log --graph` — CLI rendering of the branch graph (checkpoint
+  objects across every branch, lane-based like `git log --graph`) over
+  the same data the dashboard and export reuse. **Status: shipped on
+  `feature/phase-2`.** Note: nothing in the CLI yet calls
+  `versioning/checkpoint.ts`'s `recordCheckpoint` except `brg merge` — see
+  the flag below.
 - MCP server (`context_search`, `context_commit`, `context_diff`,
   `context_merge`) — small, deliberate surface wired into the existing
   `ToolAdapter` pattern. **Status: not started.**

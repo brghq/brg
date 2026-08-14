@@ -58,6 +58,7 @@ export function buildProgram(): Command {
   program
     .command('log')
     .description('Print a timeline of checkpoints, most recent first')
+    .option('--graph', 'render the branch/checkpoint graph instead of the checkpoint timeline')
     .action(logCommand);
 
   program
@@ -73,13 +74,13 @@ export function buildProgram(): Command {
 
   program
     .command('branch <name>')
-    .description('Create a git branch plus its matching brg context')
+    .description('Create a brg context branch, optionally linked to a new git branch')
     .option('--intent <text>', 'restated goal for this branch (prompted if omitted)')
     .action(branchCommand);
 
   program
     .command('checkout <name>')
-    .description('Check out a git branch and restore its brg context')
+    .description('Switch to a brg branch, checking out its linked git branch if it has one')
     .action(checkoutCommand);
 
   program
@@ -89,7 +90,7 @@ export function buildProgram(): Command {
 
   program
     .command('merge <source>')
-    .description('Merge a branch\'s context into the currently checked-out branch')
+    .description('Merge a branch\'s context into the currently active brg branch')
     .option('--auto', 'try the active tool as an LLM arbiter for conflicts before asking interactively')
     .action(mergeCommand);
 

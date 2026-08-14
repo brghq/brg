@@ -47,6 +47,11 @@ of Semantic Versioning.
   default, or `--auto` to try the active tool as an LLM arbiter first
   (falling back to interactive per-conflict if it can't resolve one).
   Writes a two-parent merge checkpoint on success.
+- `brg log --graph` — lane-based ASCII graph of checkpoint objects across
+  every branch, in the style of `git log --graph` (merges always render
+  correctly since brg's merge checkpoints only ever have exactly two
+  parents, never an octopus merge). Without `--graph`, `brg log` behaves
+  exactly as before.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",
