@@ -8,7 +8,32 @@ of Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- Phase 2 context-versioning design doc (`docs/CONTEXT_VERSIONING.md`) —
+  the decided architecture for context branching/diff/merge, linked from
+  `ROADMAP.md`.
+- `src/versioning/`: the underlying data model — content-addressed
+  checkpoint objects, branch-scoped fact storage, and git-branch mapping
+  (library code only, no command surface of its own).
+- `brg branch <name> [--intent "..."]` — creates a real git branch plus a
+  matching brg-tracked context (`intent` required, prompted interactively
+  if not passed via flag).
+- `brg checkout <name>` — checks out a git branch and restores its brg
+  context (intent, summary, recent checkpoints) when tracked; checks out
+  cleanly with a note otherwise.
+- `brg init` now also installs an idempotent `post-checkout` git hook that
+  flags plain `git checkout` usage landing on a branch with no brg context
+  yet.
+
+### Changed
+- User-facing messages ("already initialized", "not initialized yet",
+  "branch already tracked") no longer reference the internal `.brg/`
+  directory path — reworded in plain terms.
+
 ### Fixed
+- `readLog` (branch checkpoint log) now skips a corrupt line with a
+  warning instead of throwing, matching the tolerance already applied to
+  `readFacts`/`readGitMap`.
 - Codex's cwd-scoping check (`sessionMatchesCwd`) now tolerates spaced
   JSON formatting (`"cwd": "..."` as well as `"cwd":"..."`), found during
   a live sandbox verification pass against synthetic session files —

@@ -77,16 +77,24 @@ export function writeFacts(name: string, facts: Fact[], cwd: string = process.cw
 /**
  * Reads a branch's checkpoint log, oldest first (log.jsonl is append-only,
  * newest last, per the design doc). Each line is `{ "id": "sha256:..." }`.
- * Blank trailing line from the final newline is skipped.
+ * Blank trailing line from the final newline is skipped. A corrupt line
+ * (partial write from a crash mid-append, hand-editing) is skipped with a
+ * warning rather than throwing — same tolerance as readFacts/readGitMap,
+ * so one bad line can't take down `brg checkout`/`brg log --graph`.
  */
 export function readLog(name: string, cwd: string = process.cwd()): string[] {
   const file = branchLogPath(name, cwd);
   if (!fs.existsSync(file)) return [];
-  return fs
-    .readFileSync(file, 'utf8')
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => (JSON.parse(line) as { id: string }).id);
+  const ids: string[] = [];
+  const lines = fs.readFileSync(file, 'utf8').split('\n').filter((line) => line.trim().length > 0);
+  for (const line of lines) {
+    try {
+      ids.push((JSON.parse(line) as { id: string }).id);
+    } catch {
+      console.error(`brg: skipping corrupt log line in branch "${name}"`);
+    }
+  }
+  return ids;
 }
 
 export function appendLogEntry(name: string, checkpointId: string, cwd: string = process.cwd()): void {
