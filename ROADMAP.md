@@ -42,7 +42,8 @@ tracks status, the linked doc is the source of truth for design.
   `git branch`/`git checkout` that also creates/restores a matching
   git-ref-keyed context history (`.brg/branches/<name>/`), plus a
   `post-checkout` hook as a safety net for plain `git checkout` outside
-  brg. **Status: not started.**
+  brg. **Status: shipped on `feature/phase-2`** (name-only MVP — full
+  flag passthrough from the design doc is a later extension).
 - `brg diff` — pure structural diff between two branches' or checkpoints'
   fact sets, no LLM calls. `brg show <checkpoint-id>` inspects a single
   checkpoint. **Status: not started.**

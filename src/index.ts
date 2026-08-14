@@ -11,6 +11,8 @@ import { checkpointCommand } from './commands/checkpoint.js';
 import { logCommand } from './commands/log.js';
 import { statusCommand } from './commands/status.js';
 import { contextShowCommand } from './commands/context.js';
+import { branchCommand } from './commands/branch.js';
+import { checkoutCommand } from './commands/checkout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -66,6 +68,17 @@ export function buildProgram(): Command {
     .command('show')
     .description('Print the current .brg/context.md to stdout')
     .action(contextShowCommand);
+
+  program
+    .command('branch <name>')
+    .description('Create a git branch plus its matching brg context')
+    .option('--intent <text>', 'restated goal for this branch (prompted if omitted)')
+    .action(branchCommand);
+
+  program
+    .command('checkout <name>')
+    .description('Check out a git branch and restore its brg context')
+    .action(checkoutCommand);
 
   return program;
 }

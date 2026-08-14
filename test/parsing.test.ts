@@ -3,11 +3,22 @@ import { buildProgram } from '../src/index.js';
 import { listAdapters } from '../src/tools/registry.js';
 
 describe('command parsing', () => {
-  it('registers all Phase 1 commands', () => {
+  it('registers all commands', () => {
     const program = buildProgram();
     const names = program.commands.map((c) => c.name()).sort();
     expect(names).toEqual(
-      ['checkpoint', 'context', 'init', 'log', 'setup', 'status', 'switch', 'tools'].sort(),
+      [
+        'branch',
+        'checkout',
+        'checkpoint',
+        'context',
+        'init',
+        'log',
+        'setup',
+        'status',
+        'switch',
+        'tools',
+      ].sort(),
     );
   });
 
