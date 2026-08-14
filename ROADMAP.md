@@ -45,8 +45,10 @@ tracks status, the linked doc is the source of truth for design.
   brg. **Status: shipped on `feature/phase-2`** (name-only MVP — full
   flag passthrough from the design doc is a later extension).
 - `brg diff` — pure structural diff between two branches' or checkpoints'
-  fact sets, no LLM calls. `brg show <checkpoint-id>` inspects a single
-  checkpoint. **Status: not started.**
+  fact sets, no LLM calls. **Status: shipped on `feature/phase-2`**
+  (branch-vs-branch only; checkpoint-level diff via history replay is a
+  later extension). `brg show <checkpoint-id>` inspects a single
+  checkpoint — **not started**.
 - `brg merge` — union facts automatically, flag `(subject, relation)`
   conflicts for human-in-the-loop resolution by default (LLM-arbiter
   auto-resolve is opt-in, never default), write a two-parent merge

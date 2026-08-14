@@ -24,6 +24,8 @@ of Semantic Versioning.
 - `brg init` now also installs an idempotent `post-checkout` git hook that
   flags plain `git checkout` usage landing on a branch with no brg context
   yet.
+- `brg diff <branchA> <branchB>` — pure structural diff between two
+  branches' fact sets (added/removed/changed triples), no LLM calls.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

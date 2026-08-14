@@ -13,6 +13,7 @@ import { statusCommand } from './commands/status.js';
 import { contextShowCommand } from './commands/context.js';
 import { branchCommand } from './commands/branch.js';
 import { checkoutCommand } from './commands/checkout.js';
+import { diffCommand } from './commands/diff.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -79,6 +80,11 @@ export function buildProgram(): Command {
     .command('checkout <name>')
     .description('Check out a git branch and restore its brg context')
     .action(checkoutCommand);
+
+  program
+    .command('diff <branchA> <branchB>')
+    .description('Show fact differences between two branches')
+    .action(diffCommand);
 
   return program;
 }
