@@ -30,7 +30,7 @@ async function askIntent(): Promise<string> {
  */
 export async function branchCommand(name: string, options: BranchOptions): Promise<void> {
   if (branchExists(name)) {
-    console.error(`brg: branch "${name}" already has brg context (.brg/branches/${name}/)`);
+    console.error(`brg: branch "${name}" already has brg context tracked.`);
     process.exitCode = 1;
     return;
   }

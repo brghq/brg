@@ -4,7 +4,7 @@ import { dim } from '../utils/style.js';
 
 export function contextShowCommand(): void {
   if (!isInitialized()) {
-    console.error('brg: no .brg/ directory found. Run "brg init" first.');
+    console.error('brg: this project hasn\'t been initialized yet. Run "brg init" first.');
     process.exitCode = 1;
     return;
   }

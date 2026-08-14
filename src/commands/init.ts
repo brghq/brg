@@ -7,7 +7,7 @@ import { amber, dim } from '../utils/style.js';
 
 export function initCommand(): void {
   if (isInitialized()) {
-    console.log(dim('.brg/ already exists — nothing to do.'));
+    console.log(dim('brg is already initialized here — nothing to do.'));
     // Still worth installing on a re-run: covers a project that was
     // `brg init`-ed before this hook existed, or before it became a git
     // repo. Idempotent either way.
