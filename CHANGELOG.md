@@ -52,6 +52,13 @@ of Semantic Versioning.
   correctly since brg's merge checkpoints only ever have exactly two
   parents, never an octopus merge). Without `--graph`, `brg log` behaves
   exactly as before.
+- `brg checkpoint` and `brg switch`'s auto-checkpoint now also record a
+  versioning checkpoint on the active brg branch (via
+  `core/checkpoint.ts`'s shared `performCheckpoint`), so `brg diff`/`brg
+  merge`/`brg log --graph` have real history in normal use instead of
+  requiring a separate step. Best-effort — never blocks the primary
+  context.md/session write. `facts_delta` is always empty for now (no
+  structured fact extraction yet).
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

@@ -38,15 +38,17 @@ surface, and build sequence). It still ships one piece at a time, each
 scoped in its own discussion before work starts — this roadmap entry
 tracks status, the linked doc is the source of truth for design.
 
-**Known gap:** `brg checkpoint` (Phase 1) still only writes
-`context.md`/`sessions/*.json` — it does not call
-`versioning/checkpoint.ts`'s `recordCheckpoint`, so nothing in the CLI
-today creates a brg branch's *first* checkpoint object except `brg
-merge` itself (which requires both branches to already have one). Until
-this is wired up, `brg diff`/`brg merge`/`brg log --graph` have nothing
-real to work with in normal use. Deliberately left unresolved so far —
-module 1 flagged it as "a decision for whoever adds versioning to the
-`brg checkpoint` command," not something to assume.
+`brg checkpoint` and `brg switch`'s auto-checkpoint (via the shared
+`core/checkpoint.ts` path) now also record a versioning checkpoint on the
+active brg branch, so `brg diff`/`brg merge`/`brg log --graph` have real
+history to work with in normal use — no separate step needed.
+`facts_delta` is always empty for now (no structured fact extraction
+yet, per the design doc's later, LLM-driven addition), so every
+checkpoint records message/timestamp/tool history but not yet structured
+facts; `brg diff`/`brg merge` on facts specifically still need
+checkpoints created with a real `facts_delta` (e.g. via
+`versioning/checkpoint.ts`'s `recordCheckpoint` directly, or a future
+command).
 
 - `brg branch <name>` / `brg checkout <name>` — `brg branch` always
   creates the brg context branch first; a matching git branch is optional

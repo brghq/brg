@@ -7,18 +7,16 @@ import type { CheckpointObject, CheckpointSource, Fact, FactOp } from './types.j
  * Records one versioning checkpoint on a branch: writes the content-
  * addressed checkpoint object (parented to that branch's current head),
  * applies its facts_delta to the branch's fact set, and appends it to the
- * branch's log. This is the single write path every future caller
- * (module 2's `brg branch`/`brg checkout` auto-checkpoint, the plugin's
- * PreCompact hook, eventually `brg checkpoint` itself) should go through,
- * so branch head / facts.json / log.jsonl can never drift out of sync
- * with each other.
+ * branch's log. This is the single write path every caller (module 2's
+ * `brg branch`/`brg checkout`, `brg merge`, and — since
+ * core/checkpoint.ts's `performCheckpoint` — `brg checkpoint` and
+ * `brg switch`'s auto-checkpoint) goes through, so branch head /
+ * facts.json / log.jsonl can never drift out of sync with each other.
  *
- * Deliberately separate from src/core/checkpoint.ts (Phase 1's
- * session-record + context.md writer) — nothing here reads or writes
- * context.md or sessions/*.json, and nothing in core/ reads or writes
- * objects/branches/refs. Wiring the two together, if ever, is a decision
- * for whoever adds versioning to the `brg checkpoint` command, not
- * something this module assumes.
+ * This file itself stays agnostic of Phase 1's storage — it never reads
+ * or writes context.md or sessions/*.json. The bridge between the two
+ * lives in core/checkpoint.ts, which calls this after its own
+ * context.md/session write, not here.
  */
 export function recordCheckpoint(
   branch: string,

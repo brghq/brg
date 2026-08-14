@@ -6,6 +6,9 @@ import { initCommand } from '../src/commands/init.js';
 import { checkpointCommand } from '../src/commands/checkpoint.js';
 import { listSessions } from '../src/core/session.js';
 import { writeConfig } from '../src/core/config.js';
+import { getActiveBranch, setActiveBranch } from '../src/versioning/active.js';
+import { createBranch, headCheckpoint, readLog } from '../src/versioning/branches.js';
+import { readObject } from '../src/versioning/objects.js';
 
 describe('brg checkpoint', () => {
   let cwd: string;
@@ -62,5 +65,55 @@ describe('brg checkpoint', () => {
     // this only failed in CI on windows-latest).
     process.chdir(tmpDir);
     fs.rmSync(freshDir, { recursive: true, force: true });
+  });
+
+  it('also records a versioning checkpoint on the active branch', async () => {
+    const active = getActiveBranch();
+    expect(active).toBe('main');
+
+    await checkpointCommand('did the thing', { tool: 'claude' });
+
+    const head = headCheckpoint(active!);
+    expect(head).not.toBeNull();
+    const checkpoint = readObject(head!);
+    expect(checkpoint).toMatchObject({
+      branch: 'main',
+      tool: 'claude',
+      message: 'did the thing',
+      parent: null,
+      facts_delta: [],
+      source: 'manual',
+    });
+  });
+
+  it('two checkpoints in a row chain via parent on the versioning side', async () => {
+    await checkpointCommand('first', { tool: 'claude' });
+    await checkpointCommand('second', { tool: 'claude' });
+
+    const log = readLog('main');
+    expect(log).toHaveLength(2);
+    const second = readObject(log[1]);
+    expect(second?.parent).toBe(log[0]);
+  });
+
+  it('does not crash and still writes the session/context.md if the active-branch pointer is missing', async () => {
+    fs.rmSync(path.join(tmpDir, '.brg', 'refs', 'active'));
+    expect(getActiveBranch()).toBeNull();
+
+    await checkpointCommand('did the thing anyway', { tool: 'claude' });
+
+    const sessions = listSessions();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].message).toBe('did the thing anyway');
+  });
+
+  it('records against whichever branch is active, not always "main"', async () => {
+    createBranch('feature', 'a feature');
+    setActiveBranch('feature');
+
+    await checkpointCommand('feature work', { tool: 'claude' });
+
+    expect(headCheckpoint('feature')).not.toBeNull();
+    expect(headCheckpoint('main')).toBeNull();
   });
 });

@@ -42,6 +42,8 @@ const { switchCommand } = await import('../src/commands/switch.js');
 const { initCommand } = await import('../src/commands/init.js');
 const { writeConfig, readConfig } = await import('../src/core/config.js');
 const { listSessions } = await import('../src/core/session.js');
+const { headCheckpoint, readLog } = await import('../src/versioning/branches.js');
+const { readObject } = await import('../src/versioning/objects.js');
 
 describe('brg switch auto-checkpoint', () => {
   let cwd: string;
@@ -106,5 +108,23 @@ describe('brg switch auto-checkpoint', () => {
     expect(listSessions()).toHaveLength(0);
     expect(codexLaunch).toHaveBeenCalledTimes(1);
     expect(readConfig().defaultTool).toBe('codex');
+  });
+
+  it('auto-checkpoint also records a versioning checkpoint on the active branch', async () => {
+    writeConfig({ contextStrategy: 'manual', defaultTool: 'claude' });
+
+    await switchCommand('codex', {});
+
+    const head = headCheckpoint('main');
+    expect(head).not.toBeNull();
+    expect(readObject(head!)).toMatchObject({ tool: 'claude', source: 'manual' });
+  });
+
+  it('--fresh skips the versioning checkpoint too, not just the session one', async () => {
+    writeConfig({ contextStrategy: 'manual', defaultTool: 'claude' });
+
+    await switchCommand('codex', { fresh: true });
+
+    expect(readLog('main')).toEqual([]);
   });
 });
