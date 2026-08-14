@@ -30,13 +30,41 @@ OpenCode, others — are a natural community contribution via the
 
 ## Phase 2 — Planned
 
-Context branching and richer session awareness:
+Context branching and richer session awareness. The design for context
+branching/diff/merge is decided — see
+[docs/CONTEXT_VERSIONING.md](./docs/CONTEXT_VERSIONING.md) for the full
+architecture (data model, git integration, merge engine, MCP/plugin
+surface, and build sequence). It still ships one piece at a time, each
+scoped in its own discussion before work starts — this roadmap entry
+tracks status, the linked doc is the source of truth for design.
 
-- `brg branch` / `brg checkout` / `brg merge` — divert and reconcile
-  context lines the way git branches diverge and merge, for exploring an
-  approach without polluting the main context history
-- `brg diff` / `brg show <checkpoint-id>` — inspect what changed between
-  checkpoints
+- `brg branch <name>` / `brg checkout <name>` — thin wrapper around real
+  `git branch`/`git checkout` that also creates/restores a matching
+  git-ref-keyed context history (`.brg/branches/<name>/`), plus a
+  `post-checkout` hook as a safety net for plain `git checkout` outside
+  brg. **Status: not started.**
+- `brg diff` — pure structural diff between two branches' or checkpoints'
+  fact sets, no LLM calls. `brg show <checkpoint-id>` inspects a single
+  checkpoint. **Status: not started.**
+- `brg merge` — union facts automatically, flag `(subject, relation)`
+  conflicts for human-in-the-loop resolution by default (LLM-arbiter
+  auto-resolve is opt-in, never default), write a two-parent merge
+  checkpoint. **Status: not started.**
+- `brg log --graph` — CLI rendering of the branch graph over the same
+  data the dashboard and export reuse. **Status: not started.**
+- MCP server (`context_search`, `context_commit`, `context_diff`,
+  `context_merge`) — small, deliberate surface wired into the existing
+  `ToolAdapter` pattern. **Status: not started.**
+- Claude Code / Codex plugin — `SessionStart`/`PreCompact` hooks for
+  guaranteed context injection and pre-wipe checkpointing, plus the MCP
+  tools above for on-demand deeper search. **Status: not started.**
+- `brg dashboard` — local static server over `.brg/`, branch graph plus a
+  per-checkpoint diff inspector; no database, no cloud dependency.
+  **Status: not started.**
+- `brg export [--branch <name>] [--format md|html] [--out <path>]` — free,
+  local, no-account snapshot of a branch's context to hand a teammate;
+  Markdown or self-contained HTML only (no bundled PDF renderer — use the
+  browser's print-to-PDF on the HTML export). **Status: not started.**
 - `brg doctor` — diagnose a broken `.brg/` setup or misconfigured tool
 - `brg run --all` — fan a prompt out to multiple tools in parallel
 - **Wrapper mode** (opt-in) — instead of handing off and exiting, `brg`
