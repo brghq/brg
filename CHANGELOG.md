@@ -59,6 +59,13 @@ of Semantic Versioning.
   requiring a separate step. Best-effort — never blocks the primary
   context.md/session write. `facts_delta` is always empty for now (no
   structured fact extraction yet).
+- `brg mcp` — MCP server over stdio (new dependencies:
+  `@modelcontextprotocol/sdk`, `zod`), exposing `context_search`,
+  `context_commit`, `context_diff`, `context_merge`. Each tool wraps the
+  same versioning data `brg branch`/`diff`/`merge`/`checkpoint` already
+  use. `context_merge` can't prompt interactively (no TTY over MCP): it
+  auto-merges anything with no conflict and returns real conflicts as
+  data instead of committing; call it again with `resolutions` to finish.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

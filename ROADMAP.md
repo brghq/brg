@@ -76,12 +76,17 @@ command).
 - `brg log --graph` — CLI rendering of the branch graph (checkpoint
   objects across every branch, lane-based like `git log --graph`) over
   the same data the dashboard and export reuse. **Status: shipped on
-  `feature/phase-2`.** Note: nothing in the CLI yet calls
-  `versioning/checkpoint.ts`'s `recordCheckpoint` except `brg merge` — see
-  the flag below.
-- MCP server (`context_search`, `context_commit`, `context_diff`,
-  `context_merge`) — small, deliberate surface wired into the existing
-  `ToolAdapter` pattern. **Status: not started.**
+  `feature/phase-2`.**
+- `brg mcp` — MCP server over stdio exposing `context_search`,
+  `context_commit`, `context_diff`, `context_merge`; each tool is a thin
+  wrapper over `src/mcp/tools.ts`, which works against the same
+  versioning data `brg branch`/`diff`/`merge`/`checkpoint` already use —
+  no separate data path. `context_merge` can't prompt interactively (no
+  TTY over MCP): it auto-merges anything with no conflict, and returns
+  real conflicts as data (target/source values per subject+relation)
+  instead of committing — the calling agent decides and calls again with
+  `resolutions` filled in to finish. **Status: shipped on
+  `feature/phase-2`.**
 - Claude Code / Codex plugin — `SessionStart`/`PreCompact` hooks for
   guaranteed context injection and pre-wipe checkpointing, plus the MCP
   tools above for on-demand deeper search. **Status: not started.**

@@ -15,6 +15,7 @@ describe('command parsing', () => {
         'diff',
         'init',
         'log',
+        'mcp',
         'merge',
         'setup',
         'status',

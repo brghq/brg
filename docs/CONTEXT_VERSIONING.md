@@ -169,17 +169,35 @@ build target, not a reused pattern.
 
 ## MCP server surface
 
-Exposed once the plugin work starts. Deliberately small — a bloated tool
-surface eats the same context window this whole system exists to protect:
+Shipped as `brg mcp` — a standalone stdio server (`@modelcontextprotocol/
+sdk` + `zod`), not gated on the plugin (module 7) existing; the plugin
+bundles this same server rather than building a separate one. Deliberately
+small — a bloated tool surface eats the same context window this whole
+system exists to protect:
 
-- `context_search` — query current branch's facts/summary
-- `context_commit` — record a checkpoint
-- `context_diff` — diff two branches or checkpoints
-- `context_merge` — attempt a merge, return conflicts if any
+- `context_search` — a brg branch's intent, summary, facts, and recent
+  checkpoints; defaults to the currently active branch, optional `query`
+  substring-filters facts
+- `context_commit` — record a checkpoint (same "message-only, empty
+  facts_delta for now" scope as `brg checkpoint` itself — see Capture
+  above)
+- `context_diff` — structural diff between two branches' facts, same
+  engine as `brg diff`
+- `context_merge` — attempt a merge into the target (defaults to active
+  branch); facts with no conflict merge and commit immediately. A real
+  conflict is **not** committed — it's returned as data (`{ subject,
+  relation, target: [...], source: [...] }`) instead of resolved, since
+  there's no TTY over MCP for the interactive prompt `brg merge` uses.
+  The calling agent (not brg) decides — by asking its own user, or
+  reasoning on its own — then calls `context_merge` again with
+  `resolutions: [{ subject, relation, choice }]` filled in to finish.
+  Stateless on brg's side: no partial-merge state is held between the
+  two calls, the second call just re-runs the union merge and applies
+  the given resolutions on top.
 
-Each call returns a summary, not raw stored data — heavy lifting (diff
-computation, conflict detection) happens in the local brg process, not
-inside the tool call payload.
+Each call returns a small JSON summary, not raw stored data — heavy
+lifting (diff computation, conflict detection) happens in the local brg
+process, not inside the tool call payload.
 
 ## Plugin (Claude Code / Codex integration)
 
