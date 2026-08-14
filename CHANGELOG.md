@@ -15,19 +15,33 @@ of Semantic Versioning.
 - `src/versioning/`: the underlying data model — content-addressed
   checkpoint objects, branch-scoped fact storage, and git-branch mapping
   (library code only, no command surface of its own).
-- `brg branch <name> [--intent "..."]` — creates a real git branch plus a
-  matching brg-tracked context (`intent` required, prompted interactively
-  if not passed via flag).
-- `brg checkout <name>` — checks out a git branch and restores its brg
-  context (intent, summary, recent checkpoints) when tracked; checks out
-  cleanly with a note otherwise.
+- `brg branch <name> [--intent "..."]` — creates a brg context branch
+  (`intent` required, prompted interactively if not passed via flag).
+  Always created first and unconditionally — a matching real git branch
+  is then asked about interactively (accept to create one, under the
+  same name by default or a different one you type; decline to keep the
+  brg branch context-only), auto-skipped outside a git repo. This is what
+  lets you fork context to explore an angle without also forking git
+  history.
+- `brg checkout <name>` — switches to a brg branch and restores its
+  context (intent, summary, recent checkpoints). Only runs `git checkout`
+  if that brg branch has a linked git branch; a context-only branch
+  switches in place, leaving the checked-out git branch untouched. If
+  `<name>` isn't a tracked brg branch at all, falls back to a plain `git
+  checkout` with a note.
+- `.brg/refs/active` — tracks the currently active brg branch explicitly
+  (set by `brg branch`/`brg checkout`), since a brg branch's git branch
+  is now optional and can no longer always be inferred by asking git.
+  `brg init` seeds a default active branch automatically (named after the
+  checked-out git branch, or `main` outside a repo), backfilled
+  idempotently on re-run for projects initialized before this existed.
 - `brg init` now also installs an idempotent `post-checkout` git hook that
   flags plain `git checkout` usage landing on a branch with no brg context
   yet.
 - `brg diff <branchA> <branchB>` — pure structural diff between two
   branches' fact sets (added/removed/changed triples), no LLM calls.
 - `brg merge <source>` — merges a branch's brg context into the currently
-  checked-out branch (context-only, no `git merge` involved). Union
+  **active** brg branch (context-only, no `git merge` involved). Union
   merges automatically; candidate conflicts (same subject+relation,
   different object) go through interactive per-conflict resolution by
   default, or `--auto` to try the active tool as an LLM arbiter first

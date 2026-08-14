@@ -1,11 +1,23 @@
 import readline from 'node:readline/promises';
 import { branchExists, createBranch } from '../versioning/branches.js';
+import { setActiveBranch } from '../versioning/active.js';
 import { setMapping } from '../versioning/gitmap.js';
-import { currentGitSha, runGitBranch } from '../versioning/git.js';
+import { currentGitSha, isGitRepo, runGitBranch } from '../versioning/git.js';
 import { amber, dim } from '../utils/style.js';
 
 export interface BranchOptions {
   intent?: string;
+}
+
+export interface GitBranchConfirmation {
+  create: boolean;
+  name?: string;
+}
+
+// Injectable so tests can drive the "also create a git branch?" prompt
+// deterministically instead of mocking stdin.
+export interface BranchDependencies {
+  confirmGitBranch?: (branchName: string) => Promise<GitBranchConfirmation>;
 }
 
 async function askIntent(): Promise<string> {
@@ -22,13 +34,37 @@ async function askIntent(): Promise<string> {
   }
 }
 
+async function askGitBranchConfirmation(branchName: string): Promise<GitBranchConfirmation> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const yn = (
+      await rl.question(`Also create a matching git branch "${branchName}"? [Y/n] `)
+    )
+      .trim()
+      .toLowerCase();
+    if (yn === 'n' || yn === 'no') return { create: false };
+
+    const typed = (await rl.question(`Git branch name (Enter for "${branchName}"): `)).trim();
+    return { create: true, name: typed || branchName };
+  } finally {
+    rl.close();
+  }
+}
+
 /**
- * Creates a real git branch (via `git branch <name>`) and, on success, a
- * matching brg branch (.brg/branches/<name>/) recorded against the sha it
- * was created from. Intent comes from --intent, or an interactive prompt
- * if omitted — never left empty, since it's the whole point of intent.md.
+ * Creates a brg context branch — always, unconditionally, this is the
+ * primary action and it never depends on git. A matching real git branch
+ * is optional: asked about interactively afterward (skipped automatically
+ * outside a git repo), never required. Declining still leaves a fully
+ * usable, active brg branch with no git-map entry — this is what lets you
+ * fork context to explore an angle without creating a git branch or
+ * touching the one you're already on.
  */
-export async function branchCommand(name: string, options: BranchOptions): Promise<void> {
+export async function branchCommand(
+  name: string,
+  options: BranchOptions,
+  deps: BranchDependencies = {},
+): Promise<void> {
   if (branchExists(name)) {
     console.error(`brg: branch "${name}" already has brg context tracked.`);
     process.exitCode = 1;
@@ -37,15 +73,28 @@ export async function branchCommand(name: string, options: BranchOptions): Promi
 
   const intent = options.intent?.trim() || (await askIntent());
 
-  const exitCode = runGitBranch([name]);
-  if (exitCode !== 0) {
-    process.exitCode = exitCode;
+  createBranch(name, intent);
+  setActiveBranch(name);
+  console.log(`${amber('✓')} Created branch "${name}"`);
+
+  if (!isGitRepo()) {
+    console.log(dim('(not a git repository — skipping git branch creation)'));
     return;
   }
 
-  const createdFromSha = currentGitSha() ?? 'unknown';
-  createBranch(name, intent);
-  setMapping(name, { git_branch: name, created_from_sha: createdFromSha });
+  const confirmGitBranch = deps.confirmGitBranch ?? askGitBranchConfirmation;
+  const confirmation = await confirmGitBranch(name);
+  if (!confirmation.create) {
+    return;
+  }
 
-  console.log(`${amber('✓')} Created branch "${name}" (git + brg context)`);
+  const gitBranchName = confirmation.name?.trim() || name;
+  const exitCode = runGitBranch([gitBranchName]);
+  if (exitCode !== 0) {
+    console.log(dim(`(git branch "${gitBranchName}" was not created — the brg branch still exists on its own)`));
+    return;
+  }
+
+  setMapping(name, { git_branch: gitBranchName, created_from_sha: currentGitSha() ?? 'unknown' });
+  console.log(`${amber('✓')} Linked to git branch "${gitBranchName}"`);
 }

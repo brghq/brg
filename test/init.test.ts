@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initCommand } from '../src/commands/init.js';
+import { getActiveBranch } from '../src/versioning/active.js';
+import { branchExists } from '../src/versioning/branches.js';
 
 describe('brg init', () => {
   let cwd: string;
@@ -37,5 +39,12 @@ describe('brg init', () => {
 
     const content = fs.readFileSync(path.join(tmpDir, '.brg', 'context.md'), 'utf8');
     expect(content).toContain('existing note');
+  });
+
+  it('activates a default "main" brg branch, even outside a git repo', () => {
+    initCommand();
+
+    expect(getActiveBranch()).toBe('main');
+    expect(branchExists('main')).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import readline from 'node:readline/promises';
+import { getActiveBranch } from '../versioning/active.js';
 import { branchExists, headCheckpoint, readFacts } from '../versioning/branches.js';
 import { recordMergeCheckpoint } from '../versioning/checkpoint.js';
-import { currentGitBranch } from '../versioning/git.js';
 import { applyConflictChoice, mergeFacts, type ConflictChoice, type FactConflict } from '../versioning/merge.js';
 import { getAdapter } from '../tools/registry.js';
 import { readConfig } from '../core/config.js';
@@ -58,13 +58,15 @@ async function askArbiterViaActiveTool(conflict: FactConflict): Promise<Conflict
 }
 
 /**
- * Merges `source`'s brg context into the brg branch matching the
- * currently checked-out git branch — context-only, no `git merge`
- * involved (run that yourself if you're also merging code). Union
- * merges automatically; candidate conflicts (same subject+relation,
- * different object on each side) go through `deps.resolveConflict`
- * (interactive by default), or `deps.resolveViaArbiter` first if --auto
- * is passed and the active tool supports it.
+ * Merges `source`'s brg context into the currently active brg branch
+ * (see versioning/active.ts — not necessarily the checked-out git
+ * branch, since a brg branch can exist with no git branch of its own) —
+ * context-only, no `git merge` involved (run that yourself if you're also
+ * merging code). Union merges automatically; candidate conflicts (same
+ * subject+relation, different object on each side) go through
+ * `deps.resolveConflict` (interactive by default), or
+ * `deps.resolveViaArbiter` first if --auto is passed and the active tool
+ * supports it.
  */
 export async function mergeCommand(
   source: string,
@@ -74,11 +76,9 @@ export async function mergeCommand(
   const resolveConflict = deps.resolveConflict ?? askConflictInteractive;
   const resolveViaArbiter = deps.resolveViaArbiter ?? askArbiterViaActiveTool;
 
-  const target = currentGitBranch();
+  const target = getActiveBranch();
   if (!target || !branchExists(target)) {
-    console.error(
-      'brg: check out a branch with tracked context before merging (run "brg branch" or "brg checkout" first).',
-    );
+    console.error('brg: no active branch — run "brg branch" or "brg checkout" first.');
     process.exitCode = 1;
     return;
   }

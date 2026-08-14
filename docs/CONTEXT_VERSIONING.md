@@ -84,25 +84,47 @@ Facts are the unit diff and merge operate on — not raw messages, not full
 transcripts. `subject`/`relation` together form the conflict key: two facts
 with the same key and different `object` are a candidate conflict.
 
-### Git mapping (`refs/git-map.json`)
+### Git mapping (`refs/git-map.json`) — optional per branch
 
 ```json
-{ "feature-payments": { "git_branch": "feature-payments", "created_from_sha": "1d0e88..." } }
+{ "feature-payments": { "git_branch": "payments-work", "created_from_sha": "1d0e88..." } }
 ```
 
-Keeps brg branches keyed to real git branch names, so `brg checkout` can
-resolve which context to load without guessing.
+A brg branch's git branch is **optional**, and can have a different name
+than the brg branch itself (`git_branch` above deliberately differs from
+the key). Not every context fork needs a git fork: exploring a different
+angle on the same code without polluting the existing context thread is a
+legitimate reason to create a brg branch with no git branch at all. A brg
+branch with no entry here is a pure context branch.
+
+### Active branch (`refs/active`)
+
+Plain text file holding the name of the currently active brg branch.
+Because a brg branch's git branch is optional, "which brg branch is
+current" can no longer always be derived by asking git and looking it up
+in the git map — a context-only branch has nothing for git to tell us.
+This file is the explicit source of truth instead, set by `brg branch`/
+`brg checkout`, read by `brg merge` and anything else keyed off "the
+branch I'm currently working in." `brg init` seeds it with a default
+branch (named after the checked-out git branch, or `main` outside a repo)
+so there's never a project with no active branch.
 
 ## Git integration
 
 Two layers, not one — see the reasoning in the research notes for why
 neither alone is sufficient:
 
-- **Primary: `brg checkout <name>` / `brg branch <name>`.** Thin wrapper —
-  spawns the real `git checkout`/`git branch` (all flags passed through,
-  same exit-code semantics as plain git), then atomically restores/creates
-  the matching brg branch. This is the intentional, visible interface —
-  where the tool actually earns being used directly rather than invisibly.
+- **Primary: `brg checkout <name>` / `brg branch <name>`.** `brg branch
+  <name>` always creates the brg branch first — that's the primary,
+  unconditional action, and it never depends on git. A matching real git
+  branch is asked about afterward, interactively (skipped automatically
+  outside a git repo): accept to create one (same name by default, or a
+  different one you type), decline to keep the brg branch context-only.
+  `brg checkout <name>` runs `git checkout` only if that brg branch has a
+  git-map entry; otherwise it switches brg's active context in place,
+  leaving the checked-out git branch untouched. Declining/checkout-only
+  never blocks or degrades the brg-side operation — git involvement is
+  additive, never required.
 - **Safety net: `post-checkout` hook**, installed by `brg init`. Fires when
   someone uses plain `git checkout` outside brg (another terminal, an IDE).
   Does not do a full rich restore — just flags staleness (`brg: context

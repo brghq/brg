@@ -49,3 +49,7 @@ export function refsDir(cwd: string = process.cwd()): string {
 export function gitMapPath(cwd: string = process.cwd()): string {
   return path.join(refsDir(cwd), 'git-map.json');
 }
+
+export function activePath(cwd: string = process.cwd()): string {
+  return path.join(refsDir(cwd), 'active');
+}

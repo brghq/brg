@@ -35,6 +35,15 @@ export function currentGitBranch(cwd: string = process.cwd()): string | null {
   }
 }
 
+export function isGitRepo(cwd: string = process.cwd()): boolean {
+  try {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function gitBranchExists(name: string, cwd: string = process.cwd()): boolean {
   try {
     execFileSync('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${name}`], {

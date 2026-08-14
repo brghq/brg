@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { applyConflictChoice, mergeFacts } from '../src/versioning/merge.js';
+import { setActiveBranch } from '../src/versioning/active.js';
 import { computeFactsDelta } from '../src/versioning/facts.js';
 import { createBranch, readFacts, readLog } from '../src/versioning/branches.js';
 import { recordCheckpoint, recordMergeCheckpoint } from '../src/versioning/checkpoint.js';
@@ -208,13 +209,14 @@ describe('brg merge command', () => {
     process.exitCode = 0;
   });
 
-  it('errors when the current git branch has no brg context', async () => {
+  it('errors when there is no active branch yet', async () => {
     await mergeCommand('feature', {});
     expect(process.exitCode).toBe(1);
   });
 
   it('errors when the source branch has no brg context', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     recordCheckpoint('main', 'claude', 'work', [], 'manual');
     await mergeCommand('does-not-exist', {});
     expect(process.exitCode).toBe(1);
@@ -222,6 +224,7 @@ describe('brg merge command', () => {
 
   it('errors when merging a branch into itself', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     recordCheckpoint('main', 'claude', 'work', [], 'manual');
     await mergeCommand('main', {});
     expect(process.exitCode).toBe(1);
@@ -229,6 +232,7 @@ describe('brg merge command', () => {
 
   it('errors when either branch has no checkpoints yet', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     await mergeCommand('feature', {});
     expect(process.exitCode).toBe(1);
@@ -236,6 +240,7 @@ describe('brg merge command', () => {
 
   it('merges cleanly with no conflicts and never calls the conflict resolver', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     recordCheckpoint('main', 'claude', 'main work', [
       { op: 'add', subject: 'auth', relation: 'method', object: 'oauth' },
@@ -255,6 +260,7 @@ describe('brg merge command', () => {
 
   it('calls the injected resolver for a real conflict and applies its choice', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     recordCheckpoint('main', 'claude', 'main work', [
       { op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' },
@@ -270,6 +276,7 @@ describe('brg merge command', () => {
 
   it('--auto tries the arbiter first and falls back to the human resolver when it returns null', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     recordCheckpoint('main', 'claude', 'main work', [
       { op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' },
@@ -296,6 +303,7 @@ describe('brg merge command', () => {
 
   it('--auto skips the human resolver entirely when the arbiter resolves the conflict', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     recordCheckpoint('main', 'claude', 'main work', [
       { op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' },
@@ -320,6 +328,7 @@ describe('brg merge command', () => {
 
   it('records a merge checkpoint with two parents on success', async () => {
     createBranch('main', 'root');
+    setActiveBranch('main');
     createBranch('feature', 'a feature');
     const mainFirst = recordCheckpoint('main', 'claude', 'main work', [], 'manual');
     const featureFirst = recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
@@ -330,5 +339,35 @@ describe('brg merge command', () => {
     expect(log).toHaveLength(2);
     const mergeCheckpoint = readObject(log[1]);
     expect(mergeCheckpoint?.parents).toEqual([mainFirst.id, featureFirst.id]);
+  });
+
+  it('merge target follows the active brg branch, not the checked-out git branch', async () => {
+    // "main" is a context-only branch (no git branch) and is active;
+    // git HEAD stays on whatever initGitRepo left it on. The merge must
+    // still target "main" — proving target resolution no longer asks git.
+    createBranch('main', 'root');
+    setActiveBranch('main');
+    createBranch('feature', 'a feature');
+    recordCheckpoint('main', 'claude', 'main work', [
+      { op: 'add', subject: 'auth', relation: 'method', object: 'oauth' },
+    ], 'manual');
+    recordCheckpoint('feature', 'claude', 'feature work', [
+      { op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' },
+    ], 'manual');
+
+    await mergeCommand('feature', {});
+
+    expect(process.exitCode ?? 0).toBe(0);
+    expect(readFacts('main').map((f) => f.object).sort()).toEqual(['oauth', 'stripe']);
+  });
+
+  it('errors if the active branch pointer refers to a brg branch that no longer exists', async () => {
+    createBranch('feature', 'a feature');
+    recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
+    setActiveBranch('ghost');
+
+    await mergeCommand('feature', {});
+
+    expect(process.exitCode).toBe(1);
   });
 });

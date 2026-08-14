@@ -38,12 +38,16 @@ surface, and build sequence). It still ships one piece at a time, each
 scoped in its own discussion before work starts — this roadmap entry
 tracks status, the linked doc is the source of truth for design.
 
-- `brg branch <name>` / `brg checkout <name>` — thin wrapper around real
-  `git branch`/`git checkout` that also creates/restores a matching
-  git-ref-keyed context history (`.brg/branches/<name>/`), plus a
-  `post-checkout` hook as a safety net for plain `git checkout` outside
-  brg. **Status: shipped on `feature/phase-2`** (name-only MVP — full
-  flag passthrough from the design doc is a later extension).
+- `brg branch <name>` / `brg checkout <name>` — `brg branch` always
+  creates the brg context branch first; a matching git branch is optional
+  (asked interactively afterward, skippable, auto-skipped outside a git
+  repo), so you can fork context to explore an angle without forking git
+  history. `brg checkout` only runs `git checkout` if that brg branch has
+  a linked git branch; otherwise it switches brg's active context in
+  place. A `post-checkout` hook (installed by `brg init`) is a safety net
+  for plain `git checkout` outside brg. **Status: shipped on
+  `feature/phase-2`** (name-only MVP — full flag passthrough from the
+  design doc is a later extension).
 - `brg diff` — pure structural diff between two branches' or checkpoints'
   fact sets, no LLM calls. **Status: shipped on `feature/phase-2`**
   (branch-vs-branch only; checkpoint-level diff via history replay is a
@@ -53,7 +57,8 @@ tracks status, the linked doc is the source of truth for design.
   relation)` conflicts for human-in-the-loop resolution by default
   (`--auto` tries the active tool as an LLM arbiter first, falling back
   to human resolution per-conflict if unavailable/unparseable), writes a
-  two-parent merge checkpoint on the currently checked-out branch.
+  two-parent merge checkpoint on the currently **active brg branch**
+  (`.brg/refs/active` — not necessarily the checked-out git branch).
   **Status: shipped on `feature/phase-2`** (context-only — does not run
   `git merge`; run that yourself for the code side).
 - `brg log --graph` — CLI rendering of the branch graph over the same
