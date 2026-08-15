@@ -33,7 +33,7 @@ export async function checkpointCommand(message: string, options: CheckpointOpti
   }
 
   if (!getActiveBranch()) {
-    console.error('brg: no active branch — run "brg branch" or "brg checkout" first.');
+    console.error('brg: no active branch — run "brg checkout" first.');
     process.exitCode = 1;
     return;
   }

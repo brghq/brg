@@ -61,16 +61,22 @@ This is the single highest-value piece of remaining work — everything
 else in Phase 2 either already works end-to-end or is a display layer
 over data that's still empty.
 
-- `brg branch <name>` / `brg checkout <name>` — `brg branch` always
-  creates the brg context branch first; a matching git branch is optional
-  (asked interactively afterward, skippable, auto-skipped outside a git
-  repo), so you can fork context to explore an angle without forking git
-  history. `brg checkout` only runs `git checkout` if that brg branch has
-  a linked git branch; otherwise it switches brg's active context in
-  place. A `post-checkout` hook (installed by `brg init`) is a safety net
-  for plain `git checkout` outside brg. **Status: shipped on
-  `feature/phase-2`** (name-only MVP — full flag passthrough from the
-  design doc is a later extension).
+- `brg checkout <name>` — the single command for both creating and
+  switching brg context branches (there is no separate `brg branch`). If
+  `<name>` doesn't exist yet, it's created first — a matching git branch
+  is optional (`--git`/`--no-git`/`--git=<name>`, or asked interactively,
+  auto-skipped outside a git repo) — so you can fork context to explore
+  an angle without forking git history; `--inherit`/`--orphan` control
+  whether the new branch starts from the current branch's facts or empty.
+  If `<name>` already exists, `brg checkout` just switches to it — never
+  an error, never re-prompts. It only runs `git checkout` if that brg
+  branch has a linked git branch; otherwise it switches brg's active
+  context in place. A `post-checkout` hook (installed by `brg init`) is a
+  safety net for plain `git checkout` outside brg. The active brg branch
+  (`.brg/refs/active`) is always the source of truth for context — the
+  checked-out git branch is metadata only and is never used to resolve
+  it (`brg status` warns on divergence instead). **Status: shipped on
+  `feature/phase-2`.**
 - `brg diff` — pure structural diff between two branches' or checkpoints'
   fact sets, no LLM calls. **Status: shipped on `feature/phase-2`**
   (branch-vs-branch only; checkpoint-level diff via history replay is a
@@ -91,8 +97,12 @@ over data that's still empty.
 - `brg mcp` — MCP server over stdio exposing `context_search`,
   `context_commit`, `context_diff`, `context_merge`; each tool is a thin
   wrapper over `src/mcp/tools.ts`, which works against the same
-  versioning data `brg branch`/`diff`/`merge`/`checkpoint` already use —
-  no separate data path. `context_merge` can't prompt interactively (no
+  versioning data `brg checkout`/`diff`/`merge`/`checkpoint` already use —
+  no separate data path. `context_commit` always writes to the active
+  brg branch (`.brg/refs/active`) and has no `branch` override — a
+  deliberate design choice, so an MCP-connected agent can never silently
+  write context onto a branch other than the one the user has selected.
+  `context_merge` can't prompt interactively (no
   TTY over MCP): it auto-merges anything with no conflict, and returns
   real conflicts as data (target/source values per subject+relation)
   instead of committing — the calling agent decides and calls again with

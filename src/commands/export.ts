@@ -31,7 +31,7 @@ function resolveFormat(requested: string | undefined): ExportFormat | { error: s
 export async function exportCommand(options: ExportOptions): Promise<void> {
   const branch = options.branch ?? getActiveBranch();
   if (!branch) {
-    console.error('brg: no active branch — pass --branch, or run "brg branch"/"brg checkout" first.');
+    console.error('brg: no active branch — pass --branch, or run "brg checkout" first.');
     process.exitCode = 1;
     return;
   }

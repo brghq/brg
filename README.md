@@ -93,13 +93,13 @@ uninstall instructions — see [docs/USER_GUIDE.md](./docs/USER_GUIDE.md).
 | `brg switch <tool> -f, --fresh` | Same, but skip context — start a completely clean session | `brg switch codex --fresh` |
 | `brg checkpoint <message>` | Snapshot current state with a message, like `git commit` | `brg checkpoint "fixed the auth bug" --tool claude` |
 | `brg checkpoint <message> --tool <name>` | Attribute the checkpoint to a specific tool | `brg checkpoint "..." --tool codex` |
-| `brg log` | Print a timeline of checkpoints, most recent first | `brg log` |
-| `brg log --graph` | Render the branch/checkpoint graph | `brg log --graph` |
-| `brg status` | Show active branch/tool, last checkpoint, summary size, today's checkpoint count | `brg status` |
+| `brg log` | Print a timeline of checkpoints for the active branch | `brg log` |
+| `brg log --all` | Every branch's checkpoints, flat, tagged by branch | `brg log --all` |
+| `brg log --graph` | Render the active branch's checkpoint graph (`--all` for every branch) | `brg log --graph --all` |
+| `brg status` | Show active context branch, actual git branch (with a mismatch warning if they diverge), last checkpoint, summary size, today's checkpoint count | `brg status` |
 | `brg context show` | Print the active branch's rolling summary to stdout | `brg context show` |
-| `brg branch <name>` | Create a brg context branch, optionally linked to a new git branch | `brg branch feature-payments` |
-| `brg checkout <name>` | Switch to a brg branch, checking out its linked git branch if it has one | `brg checkout feature-payments` |
-| `brg diff <a> <b>` | Show fact differences between two branches | `brg diff main feature-payments` |
+| `brg checkout <name>` | Create (if new) and switch to a brg context branch — see below | `brg checkout feature-payments` |
+| `brg diff <name>` / `brg diff <a> <b>` | Fact differences: active branch vs `<name>`, or two explicit branches | `brg diff main feature-payments` |
 | `brg merge <source>` | Merge a branch's context into the currently active branch | `brg merge feature-payments` |
 | `brg mcp` | Start brg's MCP server over stdio | `brg mcp` |
 | `brg --version` | Print the installed version | `brg --version` |
@@ -108,6 +108,17 @@ uninstall instructions — see [docs/USER_GUIDE.md](./docs/USER_GUIDE.md).
 Run `brg <command> --help` for any command's exact flags, or see
 [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) for a full breakdown of every
 flag with examples.
+
+`brg checkout <name>` is the single command for both creating and
+switching context branches — there's no separate `brg branch`. If
+`<name>` doesn't exist yet, it's created (asking whether to inherit facts
+from your current branch or start orphan, and whether to link a git
+branch — `--inherit`/`--orphan` and `--git`/`--no-git`/`--git=<name>`
+skip the prompts) and activated. If it already exists, `brg checkout`
+just switches to it — never an error. A brg branch's context and its
+(optional) linked git branch are independent: the **active brg branch is
+always the source of truth for context**, never the currently checked-out
+git branch.
 
 ## How it works
 
@@ -166,12 +177,11 @@ equivalent plugin system today.
 ## Roadmap
 
 Phase 1 (auto-checkpoint on `brg switch`, tiered context summarization)
-and the core of Phase 2 (context branching — `brg branch`/`checkout`/
-`diff`/`merge`/`log --graph`, an MCP server, and a Claude Code plugin) are
-shipped. `brg dashboard`, `brg export`, and structured fact extraction
-(so `brg diff`/`brg merge` have real facts to compare, not just an empty
-`facts.json`) are planned next, with cloud sync further out. Full detail
-in [ROADMAP.md](./ROADMAP.md).
+and all of Phase 2 (context branching via `brg checkout`, `diff`/`merge`/
+`log --graph`, structured fact extraction, an MCP server, a Claude Code
+plugin, `brg dashboard`, and `brg export`) are shipped. Cloud sync is a
+future paid tier, further out; the CLI itself stays free and
+open-source forever. Full detail in [ROADMAP.md](./ROADMAP.md).
 
 ## Contributing
 

@@ -78,7 +78,7 @@ export async function mergeCommand(
 
   const target = getActiveBranch();
   if (!target || !branchExists(target)) {
-    console.error('brg: no active branch — run "brg branch" or "brg checkout" first.');
+    console.error('brg: no active branch — run "brg checkout" first.');
     process.exitCode = 1;
     return;
   }

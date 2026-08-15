@@ -104,15 +104,35 @@ describe('mcp/tools', () => {
       expect(readObject(id!)).toMatchObject({ tool: 'codex', message: 'did the thing', facts_delta: [] });
     });
 
-    it('respects an explicit branch override', () => {
+    it('always writes to the active branch — there is no branch override parameter, by design', () => {
       createBranch('main', 'root');
       createBranch('feature', 'a feature');
       setActiveBranch('main');
 
-      contextCommit({ message: 'feature work', branch: 'feature' });
+      // A `branch` property on the input is not part of ContextCommitInput
+      // (TS would reject it at a real call site); cast through `unknown`
+      // here specifically to prove that even if something slipped one in
+      // at runtime (e.g. a loosely-typed MCP client), it's ignored.
+      contextCommit({ message: 'feature work', branch: 'feature' } as unknown as { message: string });
+
+      expect(headCheckpoint('main')).not.toBeNull();
+      expect(headCheckpoint('feature')).toBeNull();
+    });
+
+    it('switching the active branch changes where context_commit writes, with no other input required', () => {
+      createBranch('main', 'root');
+      createBranch('feature', 'a feature');
+
+      setActiveBranch('feature');
+      contextCommit({ message: 'feature work' });
 
       expect(headCheckpoint('feature')).not.toBeNull();
       expect(headCheckpoint('main')).toBeNull();
+    });
+
+    it('errors cleanly when there is no active branch', () => {
+      const result = contextCommit({ message: 'no active branch' });
+      expect(result).toEqual({ error: expect.stringContaining('no active branch') });
     });
 
     it('records facts pushed directly by the calling agent, with source "mcp-agent"', () => {
@@ -177,6 +197,26 @@ describe('mcp/tools', () => {
         branchB: 'feature',
         differences: [{ kind: 'changed', subject: 'payments', relation: 'provider', from: ['stripe'], to: ['razorpay'] }],
       });
+    });
+
+    it('branchA defaults to the active branch when omitted', () => {
+      createBranch('main', 'root');
+      createBranch('feature', 'a feature');
+      setActiveBranch('main');
+      recordCheckpoint('main', 'claude', 'm', [
+        { op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' },
+      ], 'manual');
+      recordCheckpoint('feature', 'claude', 'f', [
+        { op: 'add', subject: 'payments', relation: 'provider', object: 'razorpay' },
+      ], 'manual');
+
+      const result = contextDiff({ branchB: 'feature' });
+      expect(result).toMatchObject({ branchA: 'main', branchB: 'feature' });
+    });
+
+    it('errors when branchA is omitted and there is no active branch', () => {
+      createBranch('feature', 'a feature');
+      expect(contextDiff({ branchB: 'feature' })).toEqual({ error: expect.stringContaining('no active branch') });
     });
   });
 

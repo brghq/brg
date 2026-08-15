@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { collectGraphNodes, renderGraph, topologicalOrder, type GraphNode } from '../src/versioning/graph.js';
+import { collectBranchNodes, collectGraphNodes, renderGraph, topologicalOrder, type GraphNode } from '../src/versioning/graph.js';
 import { createBranch } from '../src/versioning/branches.js';
+import { setActiveBranch } from '../src/versioning/active.js';
 import { recordCheckpoint, recordMergeCheckpoint } from '../src/versioning/checkpoint.js';
 import { logCommand } from '../src/commands/log.js';
 import { initCommand } from '../src/commands/init.js';
@@ -175,7 +176,53 @@ describe('versioning/graph — collectGraphNodes', () => {
   });
 });
 
-describe('brg log --graph command', () => {
+describe('versioning/graph — collectBranchNodes', () => {
+  let cwd: string;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    cwd = process.cwd();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brg-branch-nodes-'));
+    process.chdir(tmpDir);
+  });
+
+  afterEach(() => {
+    process.chdir(cwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('is empty for a branch with no checkpoints', () => {
+    createBranch('main', 'root');
+    expect(collectBranchNodes('main')).toEqual([]);
+  });
+
+  it('returns only the given branch\'s own checkpoints, not other branches\'', () => {
+    createBranch('main', 'root');
+    createBranch('feature', 'a feature');
+    const m1 = recordCheckpoint('main', 'claude', 'm1', [], 'manual');
+    recordCheckpoint('feature', 'claude', 'f1', [], 'manual');
+
+    const nodes = collectBranchNodes('main');
+    expect(nodes.map((n) => n.id)).toEqual([m1.id]);
+  });
+
+  it('a merge checkpoint is included, but the merged-in branch\'s own history is not pulled in', () => {
+    createBranch('main', 'root');
+    createBranch('feature', 'a feature');
+    recordCheckpoint('main', 'claude', 'm1', [], 'manual');
+    const f1 = recordCheckpoint('feature', 'claude', 'f1', [], 'manual');
+    const merge = recordMergeCheckpoint('main', 'feature', 'claude', 'merged', []);
+
+    const nodes = collectBranchNodes('main');
+    expect(nodes.map((n) => n.id)).toContain(merge.id);
+    expect(nodes.map((n) => n.id)).not.toContain(f1.id);
+    // The merge checkpoint's own parents field is untouched, though —
+    // renderGraph can still show the merge shape from it.
+    expect(nodes.find((n) => n.id === merge.id)?.parents).toContain(f1.id);
+  });
+});
+
+describe('brg log command', () => {
   let cwd: string;
   let tmpDir: string;
   let logs: string[];
@@ -203,19 +250,98 @@ describe('brg log --graph command', () => {
     }
   }
 
-  it('prints a placeholder when no checkpoints exist yet', () => {
-    captureLogs(() => logCommand({ graph: true }));
-    expect(logs.some((l) => l.includes('No branch checkpoints recorded yet'))).toBe(true);
+  describe('--graph', () => {
+    it('prints a placeholder when no checkpoints exist yet', () => {
+      captureLogs(() => logCommand({ graph: true }));
+      expect(logs.some((l) => l.includes('No branch checkpoints recorded yet'))).toBe(true);
+    });
+
+    it('prints one line per checkpoint, including the message', () => {
+      recordCheckpoint('main', 'claude', 'did the thing', [], 'manual');
+      captureLogs(() => logCommand({ graph: true }));
+      expect(logs.some((l) => l.includes('did the thing'))).toBe(true);
+    });
+
+    it('without --all, only shows the active branch\'s own history, not other branches\'', () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'main work', [], 'manual');
+      recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
+
+      captureLogs(() => logCommand({ graph: true }));
+
+      expect(logs.some((l) => l.includes('main work'))).toBe(true);
+      expect(logs.some((l) => l.includes('feature work'))).toBe(false);
+    });
+
+    it('--all shows every branch\'s history in the graph', () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'main work', [], 'manual');
+      recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
+
+      captureLogs(() => logCommand({ graph: true, all: true }));
+
+      expect(logs.some((l) => l.includes('main work'))).toBe(true);
+      expect(logs.some((l) => l.includes('feature work'))).toBe(true);
+    });
   });
 
-  it('prints one line per checkpoint, including the message', () => {
-    recordCheckpoint('main', 'claude', 'did the thing', [], 'manual');
-    captureLogs(() => logCommand({ graph: true }));
-    expect(logs.some((l) => l.includes('did the thing'))).toBe(true);
-  });
+  describe('flat (no --graph)', () => {
+    it('default (no flags) shows only the active branch\'s checkpoints', () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'main work', [], 'manual');
+      recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
 
-  it('without --graph, falls back to the existing session-based log', () => {
-    captureLogs(() => logCommand());
-    expect(logs.some((l) => l.includes('No checkpoints yet'))).toBe(true);
+      captureLogs(() => logCommand());
+
+      expect(logs.some((l) => l.includes('main work'))).toBe(true);
+      expect(logs.some((l) => l.includes('feature work'))).toBe(false);
+    });
+
+    it('prints a placeholder when the active branch has no checkpoints yet', () => {
+      captureLogs(() => logCommand());
+      expect(logs.some((l) => l.includes('No checkpoints yet'))).toBe(true);
+    });
+
+    it('--all shows every branch\'s checkpoints, flat and tagged with branch name', () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'main work', [], 'manual');
+      recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
+
+      captureLogs(() => logCommand({ all: true }));
+
+      const mainLine = logs.find((l) => l.includes('main work'));
+      const featureLine = logs.find((l) => l.includes('feature work'));
+      expect(mainLine).toContain('main');
+      expect(featureLine).toContain('feature');
+    });
+
+    it('--all interleaves branches by timestamp rather than grouping by branch', async () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'first (main)', [], 'manual');
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      recordCheckpoint('feature', 'claude', 'second (feature)', [], 'manual');
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      recordCheckpoint('main', 'claude', 'third (main)', [], 'manual');
+
+      captureLogs(() => logCommand({ all: true }));
+
+      // Newest first: third, second, first.
+      const order = logs
+        .map((l) => (l.includes('first') ? 0 : l.includes('second') ? 1 : l.includes('third') ? 2 : -1))
+        .filter((i) => i !== -1);
+      expect(order).toEqual([2, 1, 0]);
+    });
+
+    it('switching the active branch changes what the default (no --all) view shows', () => {
+      createBranch('feature', 'a feature');
+      recordCheckpoint('main', 'claude', 'main work', [], 'manual');
+      recordCheckpoint('feature', 'claude', 'feature work', [], 'manual');
+
+      setActiveBranch('feature');
+      captureLogs(() => logCommand());
+
+      expect(logs.some((l) => l.includes('feature work'))).toBe(true);
+      expect(logs.some((l) => l.includes('main work'))).toBe(false);
+    });
   });
 });

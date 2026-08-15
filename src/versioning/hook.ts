@@ -15,7 +15,7 @@ ${HOOK_MARKER}
 # no context for yet. Never blocks the checkout — notice only.
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 if [ -n "$BRANCH" ] && [ ! -d ".brg/branches/$BRANCH" ]; then
-  echo "brg: no context recorded for branch \\"$BRANCH\\" yet — run 'brg branch' or 'brg checkpoint' to start tracking it." >&2
+  echo "brg: no context recorded for branch \\"$BRANCH\\" yet — run 'brg checkout $BRANCH' or 'brg checkpoint' to start tracking it." >&2
 fi
 `;
 }

@@ -1,5 +1,6 @@
 import { appendLogEntry, headCheckpoint, readFacts, writeFacts } from './branches.js';
 import { applyFactsDelta, computeFactsDelta } from './facts.js';
+import { changedFiles, currentGitSha } from './git.js';
 import { writeObject } from './objects.js';
 import { regenerateSummary } from './summary.js';
 import type { CheckpointObject, CheckpointSource, Fact, FactOp } from './types.js';
@@ -9,8 +10,8 @@ import type { CheckpointObject, CheckpointSource, Fact, FactOp } from './types.j
  * addressed checkpoint object (parented to that branch's current head),
  * applies its facts_delta to the branch's fact set, appends it to the
  * branch's log, and regenerates summary.md from the (now updated) log.
- * This is the single write path every caller (module 2's `brg branch`/
- * `brg checkout`, `brg merge`, `brg checkpoint`, `brg switch`'s
+ * This is the single write path every caller (`brg checkout`'s
+ * create-branch path, `brg merge`, `brg checkpoint`, `brg switch`'s
  * auto-checkpoint, and `brg mcp`'s context_commit) goes through, so
  * branch head / facts.json / log.jsonl / summary.md can never drift out
  * of sync with each other.
@@ -35,6 +36,8 @@ export function recordCheckpoint(
       facts_delta: factsDelta,
       source,
       contextText,
+      files_touched: changedFiles(cwd),
+      git_commit_at_checkpoint: currentGitSha(cwd),
     },
     cwd,
   );
@@ -85,6 +88,8 @@ export function recordMergeCheckpoint(
       message,
       facts_delta: factsDelta,
       source: 'manual',
+      files_touched: changedFiles(cwd),
+      git_commit_at_checkpoint: currentGitSha(cwd),
     },
     cwd,
   );

@@ -22,8 +22,9 @@ export function listBranches(cwd: string = process.cwd()): string[] {
 /**
  * Creates a branch's on-disk structure: intent.md, empty summary.md,
  * empty facts.json, empty log.jsonl. Throws if the branch already exists
- * — callers (module 2's `brg branch`) decide how to surface that, this
- * layer just refuses to silently clobber an existing branch's history.
+ * — callers (`brg checkout`'s create-branch path) decide how to surface
+ * that; this layer just refuses to silently clobber an existing branch's
+ * history.
  */
 export function createBranch(name: string, intent: string, cwd: string = process.cwd()): void {
   if (branchExists(name, cwd)) {

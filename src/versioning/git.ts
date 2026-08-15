@@ -35,6 +35,31 @@ export function currentGitBranch(cwd: string = process.cwd()): string | null {
   }
 }
 
+/**
+ * File paths with uncommitted changes in the working tree right now —
+ * paths only, never diff content or file contents (git already owns
+ * that, and duplicating it risks the two going out of sync). Excludes
+ * `.brg/` itself: recording a checkpoint necessarily writes there, so
+ * without this every single checkpoint would list its own bookkeeping as
+ * a "touched file" — noise, not signal, about the actual project work.
+ * Returns [] outside a git repo or on any git error, same
+ * "reference is best-effort" posture as currentGitSha.
+ */
+export function changedFiles(cwd: string = process.cwd()): string[] {
+  try {
+    const output = execFileSync('git', ['status', '--porcelain'], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString();
+    return output
+      .split('\n')
+      .map((line) => line.slice(3).trim())
+      .filter((path) => path.length > 0 && path !== '.brg/' && !path.startsWith('.brg/'));
+  } catch {
+    return [];
+  }
+}
+
 export function isGitRepo(cwd: string = process.cwd()): boolean {
   try {
     execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, stdio: 'ignore' });

@@ -11,7 +11,6 @@ import { checkpointCommand } from './commands/checkpoint.js';
 import { logCommand } from './commands/log.js';
 import { statusCommand } from './commands/status.js';
 import { contextShowCommand } from './commands/context.js';
-import { branchCommand } from './commands/branch.js';
 import { checkoutCommand } from './commands/checkout.js';
 import { diffCommand } from './commands/diff.js';
 import { mergeCommand } from './commands/merge.js';
@@ -61,8 +60,9 @@ export function buildProgram(): Command {
 
   program
     .command('log')
-    .description('Print a timeline of checkpoints, most recent first')
+    .description('Print a timeline of checkpoints for the active branch, most recent first')
     .option('--graph', 'render the branch/checkpoint graph instead of the checkpoint timeline')
+    .option('--all', 'include every branch, not just the active one')
     .action(logCommand);
 
   program
@@ -77,19 +77,18 @@ export function buildProgram(): Command {
     .action(contextShowCommand);
 
   program
-    .command('branch <name>')
-    .description('Create a brg context branch, optionally linked to a new git branch')
-    .option('--intent <text>', 'restated goal for this branch (prompted if omitted)')
-    .action(branchCommand);
-
-  program
     .command('checkout <name>')
-    .description('Switch to a brg branch, checking out its linked git branch if it has one')
+    .description('Create (if new) and switch to a brg context branch, checking out its linked git branch if it has one')
+    .option('--intent <text>', 'restated goal for a new branch (prompted if omitted)')
+    .option('--inherit', 'new branch inherits facts from the current active branch')
+    .option('--orphan', 'new branch starts with no inherited context')
+    .option('--git [name]', 'also create/link a git branch (same name by default, or a custom one)')
+    .option('--no-git', 'do not create/link a git branch (default if omitted)')
     .action(checkoutCommand);
 
   program
-    .command('diff <branchA> <branchB>')
-    .description('Show fact differences between two branches')
+    .command('diff <name> [other]')
+    .description('Show fact differences between two branches (or the active branch and one given name)')
     .action(diffCommand);
 
   program

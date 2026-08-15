@@ -39,6 +39,15 @@ export interface CheckpointObject {
   // checkpoint) — regeneration falls back to formatting `message` itself
   // for those.
   contextText?: string;
+  // Reference-only git metadata, per the "context branch vs git branch"
+  // spec: the working tree's dirty file paths at checkpoint time (paths
+  // only — never diff content or file contents, git already owns those)
+  // and the git HEAD sha at that moment, for cross-linking to git history
+  // on demand. Both optional/absent outside a git repo, or when nothing
+  // was dirty. Never used to resolve context — that's always the active
+  // brg branch, regardless of what these say.
+  files_touched?: string[];
+  git_commit_at_checkpoint?: string | null;
 }
 
 // Everything in CheckpointObject except `id` — the input to hashing and to

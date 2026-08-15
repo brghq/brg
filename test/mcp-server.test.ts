@@ -130,6 +130,29 @@ describe('brg mcp server (end-to-end over in-memory transport)', () => {
     expect(parsed.facts).toEqual([]);
   });
 
+  it('context_commit ignores an attempted branch override over the real MCP wire — always writes to active', async () => {
+    createBranch('main', 'root');
+    createBranch('feature', 'a feature');
+    setActiveBranch('main');
+
+    const { client } = await connectedClient();
+    await client.callTool({
+      name: 'context_commit',
+      // "branch" isn't part of context_commit's schema — confirms the
+      // real server (not just the pure function) never targets anything
+      // other than the active branch.
+      arguments: { message: 'did the thing', branch: 'feature' },
+    });
+
+    const searchMain = await client.callTool({ name: 'context_search', arguments: { branch: 'main' } });
+    const searchFeature = await client.callTool({ name: 'context_search', arguments: { branch: 'feature' } });
+    const mainParsed = textOf(searchMain) as { recentCheckpoints: unknown[] };
+    const featureParsed = textOf(searchFeature) as { recentCheckpoints: unknown[] };
+
+    expect(mainParsed.recentCheckpoints).toHaveLength(1);
+    expect(featureParsed.recentCheckpoints).toHaveLength(0);
+  });
+
   it('context_diff reports an error over the wire for an unknown branch', async () => {
     createBranch('main', 'root');
     const { client } = await connectedClient();

@@ -19,7 +19,7 @@ function textResult(value: unknown) {
  * instead of spawning a real stdio subprocess. Deliberately a small,
  * four-tool surface per the design doc: each tool is a thin wrapper over
  * src/mcp/tools.ts, which does the actual work against the same
- * versioning data brg branch/diff/merge/checkpoint already use — no
+ * versioning data brg checkout/diff/merge/checkpoint already use — no
  * separate data path.
  */
 export function buildMcpServer(): McpServer {
@@ -41,12 +41,13 @@ export function buildMcpServer(): McpServer {
     'context_commit',
     {
       description:
-        'Record a checkpoint on a brg branch, like `brg checkpoint`. Defaults to the currently active branch. ' +
+        'Record a checkpoint on the currently active brg branch, like `brg checkpoint`. Always writes to the ' +
+        'active branch — there is no branch override, unlike the read-only tools, since a write should never ' +
+        "silently land somewhere other than where the user (and every other brg surface) currently is. " +
         'If you (the calling agent) know structured facts that changed this session, include them in `facts` ' +
         'rather than leaving brg to guess them later — you have the live context, brg doesn\'t.',
       inputSchema: {
         message: z.string().describe('Checkpoint message'),
-        branch: z.string().optional().describe('Branch name; defaults to the currently active brg branch'),
         tool: z.string().optional().describe('Tool name to attribute this checkpoint to'),
         facts: z
           .array(
@@ -69,7 +70,7 @@ export function buildMcpServer(): McpServer {
     {
       description: 'Structural diff of two branches\' facts (added/removed/changed triples). No LLM involved.',
       inputSchema: {
-        branchA: z.string(),
+        branchA: z.string().optional().describe('Branch name; defaults to the currently active brg branch'),
         branchB: z.string(),
       },
     },

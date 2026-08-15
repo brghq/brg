@@ -30,7 +30,7 @@ export interface ContextSearchResult {
 
 function resolveBranch(requested: string | undefined, cwd: string): string | { error: string } {
   const branch = requested ?? getActiveBranch(cwd);
-  if (!branch) return { error: 'no active branch, and none was specified — pass `branch`, or run "brg branch"/"brg checkout" first' };
+  if (!branch) return { error: 'no active branch, and none was specified — pass `branch`, or run "brg checkout" first' };
   if (!branchExists(branch, cwd)) return { error: `no brg context tracked for branch "${branch}"` };
   return branch;
 }
@@ -66,7 +66,6 @@ export function contextSearch(
 
 export interface ContextCommitInput {
   message: string;
-  branch?: string;
   tool?: string;
   // Lets the calling agent record its own understanding directly — its
   // own live reasoning about what changed in this session — instead of
@@ -82,12 +81,21 @@ export interface ContextCommitResult {
   branch: string;
 }
 
+/**
+ * Deliberately no `branch` parameter — unlike the read-only tools, a
+ * write always targets the active branch only, no override. Per the
+ * "context branch vs git branch" spec: the active branch is the sole
+ * source of truth to write into; a write-time branch override would let
+ * an agent silently record context somewhere other than where the user
+ * (and every other brg surface) currently is.
+ */
 export function contextCommit(
   input: ContextCommitInput,
   cwd: string = process.cwd(),
 ): ContextCommitResult | { error: string } {
-  const branch = resolveBranch(input.branch, cwd);
-  if (typeof branch !== 'string') return branch;
+  const branch = getActiveBranch(cwd);
+  if (!branch) return { error: 'no active branch — run "brg checkout" first' };
+  if (!branchExists(branch, cwd)) return { error: `no brg context tracked for branch "${branch}"` };
 
   const facts = input.facts ?? [];
   const source = facts.length > 0 ? 'mcp-agent' : 'manual';
@@ -96,7 +104,8 @@ export function contextCommit(
 }
 
 export interface ContextDiffInput {
-  branchA: string;
+  // Optional — defaults to the active branch, same as context_search.
+  branchA?: string;
   branchB: string;
 }
 
@@ -110,11 +119,12 @@ export function contextDiff(
   input: ContextDiffInput,
   cwd: string = process.cwd(),
 ): ContextDiffResult | { error: string } {
-  for (const name of [input.branchA, input.branchB]) {
-    if (!branchExists(name, cwd)) return { error: `no brg context tracked for branch "${name}"` };
-  }
-  const differences = diffFacts(readFacts(input.branchA, cwd), readFacts(input.branchB, cwd));
-  return { branchA: input.branchA, branchB: input.branchB, differences };
+  const branchA = resolveBranch(input.branchA, cwd);
+  if (typeof branchA !== 'string') return branchA;
+  if (!branchExists(input.branchB, cwd)) return { error: `no brg context tracked for branch "${input.branchB}"` };
+
+  const differences = diffFacts(readFacts(branchA, cwd), readFacts(input.branchB, cwd));
+  return { branchA, branchB: input.branchB, differences };
 }
 
 export interface MergeResolutionInput {

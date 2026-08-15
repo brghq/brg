@@ -1,8 +1,8 @@
 # Context Versioning Architecture (Phase 2 design)
 
 This document is the detailed technical design behind the Phase 2 items in
-[`ROADMAP.md`](../ROADMAP.md) — `brg branch` / `brg checkout` / `brg merge`
-/ `brg diff`. It exists so implementation can start directly from this file
+[`ROADMAP.md`](../ROADMAP.md) — `brg checkout` / `brg merge` / `brg diff`.
+It exists so implementation can start directly from this file
 without re-deriving the reasoning behind it.
 
 Status: **decided**, after discussion — this is the design Phase 2 work
@@ -103,25 +103,32 @@ Plain text file holding the name of the currently active brg branch.
 Because a brg branch's git branch is optional, "which brg branch is
 current" can no longer always be derived by asking git and looking it up
 in the git map — a context-only branch has nothing for git to tell us.
-This file is the explicit source of truth instead, set by `brg branch`/
-`brg checkout`, read by `brg merge` and anything else keyed off "the
-branch I'm currently working in." `brg init` seeds it with a default
-branch (named after the checked-out git branch, or `main` outside a repo)
-so there's never a project with no active branch.
+This file is the explicit source of truth instead, set by `brg checkout`,
+read by `brg merge` and anything else keyed off "the branch I'm currently
+working in." `brg init` seeds it with a default branch (named after the
+checked-out git branch, or `main` outside a repo) so there's never a
+project with no active branch. This is the invariant the rest of the CLI
+is held to: **the active brg branch is always the source of truth for
+context; the checked-out git branch is metadata/reference only**, and is
+never used to resolve or auto-switch context — `brg status` reports a
+mismatch instead of acting on it.
 
 ## Git integration
 
 Two layers, not one — see the reasoning in the research notes for why
 neither alone is sufficient:
 
-- **Primary: `brg checkout <name>` / `brg branch <name>`.** `brg branch
-  <name>` always creates the brg branch first — that's the primary,
+- **Primary: `brg checkout <name>`.** A single command for both creating
+  and switching brg context branches — there is no separate `brg branch`.
+  If `<name>` doesn't exist yet, creating the brg branch is the primary,
   unconditional action, and it never depends on git. A matching real git
-  branch is asked about afterward, interactively (skipped automatically
-  outside a git repo): accept to create one (same name by default, or a
-  different one you type), decline to keep the brg branch context-only.
-  `brg checkout <name>` runs `git checkout` only if that brg branch has a
-  git-map entry; otherwise it switches brg's active context in place,
+  branch is asked about afterward, interactively (`--git`/`--no-git`/
+  `--git=<name>` skip the prompt; auto-skipped outside a git repo): accept
+  to create one (same name by default, or a different one you type),
+  decline to keep the brg branch context-only. If `<name>` already
+  exists, `brg checkout <name>` just switches to it — never an error,
+  never re-prompts — and only runs `git checkout` if that brg branch has
+  a git-map entry; otherwise it switches brg's active context in place,
   leaving the checked-out git branch untouched. Declining/checkout-only
   never blocks or degrades the brg-side operation — git involvement is
   additive, never required.
@@ -192,9 +199,12 @@ system exists to protect:
 - `context_search` — a brg branch's intent, summary, facts, and recent
   checkpoints; defaults to the currently active branch, optional `query`
   substring-filters facts
-- `context_commit` — record a checkpoint (same "message-only, empty
-  facts_delta for now" scope as `brg checkpoint` itself — see Capture
-  above)
+- `context_commit` — record a checkpoint on the active brg branch, same
+  tiered fact-capture behavior as `brg checkpoint` (see Capture above).
+  Always writes to `.brg/refs/active`'s branch; there is no `branch`
+  parameter to target a different one — a deliberate choice so an
+  MCP-connected agent can never silently write context onto a branch
+  other than the one the user has selected
 - `context_diff` — structural diff between two branches' facts, same
   engine as `brg diff`
 - `context_merge` — attempt a merge into the target (defaults to active
@@ -262,7 +272,8 @@ without either side needing brg installed to read it.
 
 1. Data model + `objects/`/`branches/` read-write, no branching logic yet —
    get the schema right first, everything else depends on it.
-2. `brg branch` / `brg checkout` wrapping real git, with the safety-net hook.
+2. `brg checkout` (create + switch, unified) wrapping real git, with the
+   safety-net hook.
 3. `brg diff` — pure structural diff, no LLM involvement, easiest correctness
    win.
 4. `brg merge` — union + conflict-flagging first (no LLM), human-resolution

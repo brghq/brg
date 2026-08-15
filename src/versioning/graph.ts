@@ -1,4 +1,4 @@
-import { headCheckpoint, listBranches } from './branches.js';
+import { headCheckpoint, listBranches, readLog } from './branches.js';
 import { readObject } from './objects.js';
 
 export interface GraphNode {
@@ -56,6 +56,31 @@ export function collectGraphNodes(cwd: string = process.cwd()): GraphNode[] {
   }
 
   return [...visited.values()];
+}
+
+/**
+ * A single branch's own checkpoint history — its log.jsonl already *is*
+ * the complete, ordered list (every checkpoint on a branch is parented to
+ * the previous one on that same branch, or the branch's own head plus an
+ * external second parent for a merge checkpoint), so this needs no
+ * parent-walk the way `collectGraphNodes` does. A merge checkpoint's
+ * second parent (from the merged-in branch) intentionally isn't resolved
+ * here — `renderGraph` shows the merge point without pulling in that
+ * other branch's full ancestry, matching `brg log --graph` (no `--all`).
+ */
+export function collectBranchNodes(branch: string, cwd: string = process.cwd()): GraphNode[] {
+  return readLog(branch, cwd)
+    .map((id) => readObject(id, cwd))
+    .filter((o): o is NonNullable<typeof o> => o !== null)
+    .map((object) => ({
+      id: object.id,
+      parent: object.parent,
+      parents: object.parents,
+      branch: object.branch,
+      tool: object.tool,
+      timestamp: object.timestamp,
+      message: object.message,
+    }));
 }
 
 /**

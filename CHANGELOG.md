@@ -174,6 +174,40 @@ of Semantic Versioning.
   a live sandbox verification pass against synthetic session files —
   real Codex output is compact JSON so this wasn't user-visible, but the
   strict substring/regex match was an unnecessary landmine.
+- **Audit against the "Context Branch vs Git Branch" invariant** (the
+  active brg branch, `.brg/refs/active`, must always be the source of
+  truth for context; the checked-out git branch is metadata/reference
+  only and must never be used to resolve or auto-switch context) found
+  and fixed six gaps between that spec and actual behavior:
+  - `brg branch` and `brg checkout` are merged into a single `brg
+    checkout <name>` command — creates and switches on a new name,
+    switches only (never errors, never re-prompts) on an existing one.
+    New `--inherit`/`--orphan` and `--git`/`--no-git`/`--git=<name>`
+    flags skip the interactive prompts these previously always required.
+  - Checkpoint objects gained `files_touched` (working-tree paths from
+    `git status --porcelain`, paths only, no diff/file content, `.brg/`
+    itself always excluded) and `git_commit_at_checkpoint` (`git
+    rev-parse HEAD`) — both `null`/`[]` outside a git repo or on any git
+    error, reference-only and never consulted to resolve branch scope.
+  - `brg log` now defaults to the active branch only; `--all` lists
+    every branch flat and tagged; `--graph` scopes to the active branch
+    by default and takes `--all` for the full cross-branch graph
+    (previously it always showed every branch, with no way to scope to
+    just the active one).
+  - `brg status` now prints the actual checked-out git branch as its own
+    field, and warns (without acting) when it has no linked git branch
+    or diverges from the active brg branch's linked one.
+  - `brg diff <name>` gained a one-argument form (active branch vs
+    `<name>`), alongside the existing two-argument `brg diff <a> <b>`.
+  - `context_commit`'s MCP tool schema dropped its `branch` override
+    parameter — it always writes to the active brg branch now, so a
+    connected agent can't silently target a different one; `context_diff`
+    gained an optional `branchA` (defaulting to active) to match.
+  - Six other spec sections (checkpoint attribution, merge target
+    resolution, the `post-checkout` hook, `brg init`'s active-branch
+    seeding, `context_search`/`context_merge`'s branch defaulting, and
+    `brg export`'s branch defaulting) were checked against the spec and
+    confirmed already compliant — no change needed.
 
 ## [26.8.3] - 2026-08-11
 
