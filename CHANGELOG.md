@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 As of `26.8.3`, this project uses calendar versioning (`YY.M.patch`) instead
 of Semantic Versioning.
 
-## [Unreleased]
+## [26.8.5] - 2026-08-15
 
 ### Added
 - Phase 2 context-versioning design doc (`docs/CONTEXT_VERSIONING.md`) —

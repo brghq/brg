@@ -1,7 +1,7 @@
 {
   "name": "brg",
   "description": "Never explain yourself twice — injects brg's branch-scoped project context into every Claude Code session, and checkpoints before compaction so nothing gets lost.",
-  "version": "26.8.4",
+  "version": "26.8.5",
   "author": {
     "name": "Shivam Shukla",
     "url": "https://github.com/brghq"
