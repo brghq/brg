@@ -15,31 +15,32 @@ of Semantic Versioning.
 - `src/versioning/`: the underlying data model — content-addressed
   checkpoint objects, branch-scoped fact storage, and git-branch mapping
   (library code only, no command surface of its own).
-- `brg branch <name> [--intent "..."]` — creates a brg context branch
-  (`intent` required, prompted interactively if not passed via flag).
-  Always created first and unconditionally — a matching real git branch
-  is then asked about interactively (accept to create one, under the
-  same name by default or a different one you type; decline to keep the
-  brg branch context-only), auto-skipped outside a git repo. This is what
-  lets you fork context to explore an angle without also forking git
-  history.
-- `brg checkout <name>` — switches to a brg branch and restores its
-  context (intent, summary, recent checkpoints). Only runs `git checkout`
-  if that brg branch has a linked git branch; a context-only branch
-  switches in place, leaving the checked-out git branch untouched. If
-  `<name>` isn't a tracked brg branch at all, falls back to a plain `git
-  checkout` with a note.
-- `.brg/refs/active` — tracks the currently active brg branch explicitly
-  (set by `brg branch`/`brg checkout`), since a brg branch's git branch
-  is now optional and can no longer always be inferred by asking git.
-  `brg init` seeds a default active branch automatically (named after the
-  checked-out git branch, or `main` outside a repo), backfilled
-  idempotently on re-run for projects initialized before this existed.
+- `brg checkout <name>` — the single command for both creating and
+  switching brg context branches. If `<name>` doesn't exist yet, it's
+  created (`--inherit`/`--orphan` choose whether it starts from your
+  current branch's facts or empty; a matching real git branch is
+  optional, via `--git`/`--no-git`/`--git=<name>` or an interactive
+  prompt, auto-skipped outside a git repo) and activated. If `<name>`
+  already exists, `brg checkout` just switches to it — never an error.
+  Switching only runs `git checkout` if that brg branch has a linked git
+  branch; a context-only branch switches in place, leaving the
+  checked-out git branch untouched. This is what lets you fork context to
+  explore an angle without also forking git history.
+- `.brg/refs/active` — tracks the currently active brg branch explicitly,
+  since a brg branch's git branch is optional and can't always be
+  inferred by asking git. `brg init` seeds a default active branch
+  automatically (named after the checked-out git branch, or `main`
+  outside a repo), backfilled idempotently on re-run for projects
+  initialized before this existed. The active brg branch is always the
+  source of truth for context — the checked-out git branch is metadata
+  only, and `brg status` warns (without acting) if the two drift apart.
 - `brg init` now also installs an idempotent `post-checkout` git hook that
   flags plain `git checkout` usage landing on a branch with no brg context
   yet.
-- `brg diff <branchA> <branchB>` — pure structural diff between two
-  branches' fact sets (added/removed/changed triples), no LLM calls.
+- `brg diff <name>` / `brg diff <a> <b>` — pure structural diff between
+  two branches' fact sets (added/removed/changed triples), no LLM calls.
+  One argument diffs the active branch against `<name>`; two arguments
+  diff any two branches directly.
 - `brg merge <source>` — merges a branch's brg context into the currently
   **active** brg branch (context-only, no `git merge` involved). Union
   merges automatically; candidate conflicts (same subject+relation,
@@ -47,11 +48,22 @@ of Semantic Versioning.
   default, or `--auto` to try the active tool as an LLM arbiter first
   (falling back to interactive per-conflict if it can't resolve one).
   Writes a two-parent merge checkpoint on success.
-- `brg log --graph` — lane-based ASCII graph of checkpoint objects across
-  every branch, in the style of `git log --graph` (merges always render
-  correctly since brg's merge checkpoints only ever have exactly two
-  parents, never an octopus merge). Without `--graph`, `brg log` behaves
-  exactly as before.
+- `brg log` — prints the active branch's checkpoints, newest first; `--all`
+  lists every branch's checkpoints together, flat and tagged by branch;
+  `--graph` renders a lane-based ASCII graph of checkpoint objects, in the
+  style of `git log --graph` (merges always render correctly since brg's
+  merge checkpoints only ever have exactly two parents, never an octopus
+  merge) — scoped to the active branch by default, or every branch with
+  `--graph --all`.
+- Checkpoint objects now record `files_touched` (the working-tree file
+  paths that were dirty at checkpoint time, paths only — never diff or
+  file content) and `git_commit_at_checkpoint` (the git commit HEAD was
+  on). Both are `null`/`[]` outside a git repo, and are informational
+  only — nothing in brg reads them to decide which branch is active.
+- `brg status` now also prints the actual checked-out git branch as its
+  own field, and warns if it has no linked git branch or if it diverges
+  from the active brg branch's linked one — a heads-up, not something brg
+  acts on automatically.
 - `contextText` field on checkpoint objects — the full generated text
   from a checkpoint's context strategy (tool self-summary, transcript
   excerpt, or a plain formatted line), carried forward permanently since
@@ -70,10 +82,15 @@ of Semantic Versioning.
 - `brg mcp` — MCP server over stdio (new dependencies:
   `@modelcontextprotocol/sdk`, `zod`), exposing `context_search`,
   `context_commit`, `context_diff`, `context_merge`. Each tool wraps the
-  same versioning data `brg branch`/`diff`/`merge`/`checkpoint` already
-  use. `context_merge` can't prompt interactively (no TTY over MCP): it
-  auto-merges anything with no conflict and returns real conflicts as
-  data instead of committing; call it again with `resolutions` to finish.
+  same versioning data `brg checkout`/`diff`/`merge`/`checkpoint` already
+  use. `context_commit` always writes to the active brg branch — there's
+  no way to target a different one — so a connected agent can never
+  silently write context onto a branch other than the one you've
+  selected; `context_diff` defaults to the active branch but takes an
+  optional branch to compare against. `context_merge` can't prompt
+  interactively (no TTY over MCP): it auto-merges anything with no
+  conflict and returns real conflicts as data instead of committing; call
+  it again with `resolutions` to finish.
 - `plugin/` — a Claude Code plugin bundling brg's hooks and MCP server.
   `SessionStart` injects the active branch's `summary.md` as session
   context (skipped when the session started via `/clear`, respecting an
@@ -148,9 +165,9 @@ of Semantic Versioning.
     global session count.
   - `brg context show` prints the active branch's `summary.md` instead
     of `context.md`.
-  - `brg log` (without `--graph`) now lists every branch's checkpoints
-    together, flat and chronological, sourced from checkpoint objects
-    instead of `sessions/*.json` — same shape as before, new source.
+  - `brg log` (without `--graph`) now lists the active branch's
+    checkpoints, sourced from checkpoint objects instead of
+    `sessions/*.json`.
   - `brg checkpoint`/`brg switch` now error cleanly ("no active branch")
     instead of silently degrading, since there's no longer a
     context.md/session fallback path to degrade to — unreachable in
@@ -174,40 +191,11 @@ of Semantic Versioning.
   a live sandbox verification pass against synthetic session files —
   real Codex output is compact JSON so this wasn't user-visible, but the
   strict substring/regex match was an unnecessary landmine.
-- **Audit against the "Context Branch vs Git Branch" invariant** (the
-  active brg branch, `.brg/refs/active`, must always be the source of
-  truth for context; the checked-out git branch is metadata/reference
-  only and must never be used to resolve or auto-switch context) found
-  and fixed six gaps between that spec and actual behavior:
-  - `brg branch` and `brg checkout` are merged into a single `brg
-    checkout <name>` command — creates and switches on a new name,
-    switches only (never errors, never re-prompts) on an existing one.
-    New `--inherit`/`--orphan` and `--git`/`--no-git`/`--git=<name>`
-    flags skip the interactive prompts these previously always required.
-  - Checkpoint objects gained `files_touched` (working-tree paths from
-    `git status --porcelain`, paths only, no diff/file content, `.brg/`
-    itself always excluded) and `git_commit_at_checkpoint` (`git
-    rev-parse HEAD`) — both `null`/`[]` outside a git repo or on any git
-    error, reference-only and never consulted to resolve branch scope.
-  - `brg log` now defaults to the active branch only; `--all` lists
-    every branch flat and tagged; `--graph` scopes to the active branch
-    by default and takes `--all` for the full cross-branch graph
-    (previously it always showed every branch, with no way to scope to
-    just the active one).
-  - `brg status` now prints the actual checked-out git branch as its own
-    field, and warns (without acting) when it has no linked git branch
-    or diverges from the active brg branch's linked one.
-  - `brg diff <name>` gained a one-argument form (active branch vs
-    `<name>`), alongside the existing two-argument `brg diff <a> <b>`.
-  - `context_commit`'s MCP tool schema dropped its `branch` override
-    parameter — it always writes to the active brg branch now, so a
-    connected agent can't silently target a different one; `context_diff`
-    gained an optional `branchA` (defaulting to active) to match.
-  - Six other spec sections (checkpoint attribution, merge target
-    resolution, the `post-checkout` hook, `brg init`'s active-branch
-    seeding, `context_search`/`context_merge`'s branch defaulting, and
-    `brg export`'s branch defaulting) were checked against the spec and
-    confirmed already compliant — no change needed.
+- The `post-checkout` safety-net hook test relied on invoking the
+  installed hook script directly, which isn't portable to Windows (no
+  shebang association outside Git Bash); it now triggers the hook through
+  a real `git checkout`, matching how git itself runs hooks on every
+  platform.
 
 ## [26.8.3] - 2026-08-11
 
