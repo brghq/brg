@@ -2,6 +2,7 @@ import { performCheckpoint } from '../core/checkpoint.js';
 import { readConfig } from '../core/config.js';
 import { getAdapter } from '../tools/registry.js';
 import { isInitialized } from '../core/config.js';
+import { getActiveBranch } from '../versioning/active.js';
 import type { ToolAdapter } from '../tools/types.js';
 import { amber } from '../utils/style.js';
 
@@ -26,7 +27,13 @@ function unregisteredToolStub(name: string): ToolAdapter {
 
 export async function checkpointCommand(message: string, options: CheckpointOptions): Promise<void> {
   if (!isInitialized()) {
-    console.error('brg: no .brg/ directory found. Run "brg init" first.');
+    console.error('brg: this project hasn\'t been initialized yet. Run "brg init" first.');
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!getActiveBranch()) {
+    console.error('brg: no active branch — run "brg checkout" first.');
     process.exitCode = 1;
     return;
   }

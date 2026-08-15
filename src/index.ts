@@ -11,6 +11,13 @@ import { checkpointCommand } from './commands/checkpoint.js';
 import { logCommand } from './commands/log.js';
 import { statusCommand } from './commands/status.js';
 import { contextShowCommand } from './commands/context.js';
+import { checkoutCommand } from './commands/checkout.js';
+import { diffCommand } from './commands/diff.js';
+import { mergeCommand } from './commands/merge.js';
+import { mcpCommand } from './commands/mcp.js';
+import { hookCommand } from './commands/hook.js';
+import { dashboardCommand } from './commands/dashboard.js';
+import { exportCommand } from './commands/export.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -53,7 +60,9 @@ export function buildProgram(): Command {
 
   program
     .command('log')
-    .description('Print a timeline of checkpoints, most recent first')
+    .description('Print a timeline of checkpoints for the active branch, most recent first')
+    .option('--graph', 'render the branch/checkpoint graph instead of the checkpoint timeline')
+    .option('--all', 'include every branch, not just the active one')
     .action(logCommand);
 
   program
@@ -66,6 +75,51 @@ export function buildProgram(): Command {
     .command('show')
     .description('Print the current .brg/context.md to stdout')
     .action(contextShowCommand);
+
+  program
+    .command('checkout <name>')
+    .description('Create (if new) and switch to a brg context branch, checking out its linked git branch if it has one')
+    .option('--intent <text>', 'restated goal for a new branch (prompted if omitted)')
+    .option('--inherit', 'new branch inherits facts from the current active branch')
+    .option('--orphan', 'new branch starts with no inherited context')
+    .option('--git [name]', 'also create/link a git branch (same name by default, or a custom one)')
+    .option('--no-git', 'do not create/link a git branch (default if omitted)')
+    .action(checkoutCommand);
+
+  program
+    .command('diff <name> [other]')
+    .description('Show fact differences between two branches (or the active branch and one given name)')
+    .action(diffCommand);
+
+  program
+    .command('merge <source>')
+    .description('Merge a branch\'s context into the currently active brg branch')
+    .option('--auto', 'try the active tool as an LLM arbiter for conflicts before asking interactively')
+    .action(mergeCommand);
+
+  program
+    .command('mcp')
+    .description('Start brg\'s MCP server over stdio (context_search/commit/diff/merge)')
+    .action(mcpCommand);
+
+  program
+    .command('hook <event>')
+    .description('Backing command for the Claude Code plugin\'s hooks (session-start, pre-compact)')
+    .action(hookCommand);
+
+  program
+    .command('dashboard')
+    .description('Start a local web dashboard over .brg/ (branch graph + checkpoint inspector)')
+    .option('--port <n>', 'port to listen on', String(4848))
+    .action(dashboardCommand);
+
+  program
+    .command('export')
+    .description('Export a branch\'s context as a standalone Markdown or HTML file')
+    .option('--branch <name>', 'branch to export; defaults to the currently active branch')
+    .option('--format <md|html>', 'output format', 'md')
+    .option('--out <path>', 'output file path; defaults to brg-export-<branch>.<format>')
+    .action(exportCommand);
 
   return program;
 }

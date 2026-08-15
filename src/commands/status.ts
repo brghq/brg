@@ -1,7 +1,9 @@
-import fs from 'node:fs';
 import { isInitialized, readConfig } from '../core/config.js';
-import { contextPath } from '../core/context.js';
-import { listSessions } from '../core/session.js';
+import { getActiveBranch } from '../versioning/active.js';
+import { readLog, readSummary } from '../versioning/branches.js';
+import { currentGitBranch } from '../versioning/git.js';
+import { getMapping } from '../versioning/gitmap.js';
+import { readObject } from '../versioning/objects.js';
 import { dim } from '../utils/style.js';
 
 function formatElapsed(since: Date): string {
@@ -22,17 +24,39 @@ export function statusCommand(): void {
   }
 
   const config = readConfig();
-  const sessions = listSessions();
-  const last = sessions[sessions.length - 1];
-
-  const file = contextPath();
-  const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
+  const branch = getActiveBranch();
+  const log = branch ? readLog(branch) : [];
+  const lastId = log[log.length - 1];
+  const last = lastId ? readObject(lastId) : null;
+  const summarySize = branch ? Buffer.byteLength(readSummary(branch), 'utf8') : 0;
 
   const today = new Date().toISOString().slice(0, 10);
-  const todayCount = sessions.filter((s) => s.timestamp.slice(0, 10) === today).length;
+  const todayCount = log.filter((id) => readObject(id)?.timestamp.slice(0, 10) === today).length;
 
+  const gitBranch = currentGitBranch();
+  const linkedGitBranch = branch ? getMapping(branch)?.git_branch : undefined;
+
+  console.log(`active branch:     ${branch ?? dim('(none)')}`);
+  console.log(`git branch:        ${gitBranch ?? dim('(not a git repo)')}`);
   console.log(`active tool:       ${config.defaultTool ?? dim('(not set)')}`);
   console.log(`last checkpoint:   ${last ? formatElapsed(new Date(last.timestamp)) : dim('never')}`);
-  console.log(`context.md size:   ${size} bytes`);
+  console.log(`summary size:      ${summarySize} bytes`);
   console.log(`checkpoints today: ${todayCount}`);
+
+  // The active context branch and the checked-out git branch are
+  // independent lineages by design — this is purely informational, never
+  // a signal brg acts on (see the "context branch vs git branch" spec).
+  if (branch && gitBranch) {
+    if (linkedGitBranch && linkedGitBranch !== gitBranch) {
+      console.log(
+        dim(
+          `\n⚠ context branch "${branch}" is linked to git branch "${linkedGitBranch}", but you're currently on "${gitBranch}"`,
+        ),
+      );
+    } else if (!linkedGitBranch) {
+      console.log(
+        dim(`\n⚠ context branch "${branch}" has no linked git branch (currently on git branch "${gitBranch}")`),
+      );
+    }
+  }
 }

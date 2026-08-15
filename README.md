@@ -45,9 +45,10 @@ $ brg log
 2026-08-10T11:26:57.784Z  claude  wired up the auth middleware
 
 $ brg status
+active branch:     main
 active tool:       (not set)
 last checkpoint:   just now
-context.md size:   153 bytes
+summary size:      153 bytes
 checkpoints today: 1
 ```
 
@@ -71,10 +72,11 @@ brg switch claude    # hand off to Claude Code with your project context loaded
 
 - `brg setup` walks you through installing and logging into each AI CLI —
   idempotent, so re-running it skips anything already set up.
-- `brg init` creates `.brg/` in the current directory: `context.md`,
-  `config.yaml`, `sessions/`.
-- `brg switch claude` reads `.brg/context.md`, hands off full terminal
-  control to `claude` with that context loaded, then exits.
+- `brg init` creates `.brg/` in the current directory and activates a
+  default branch (see "How it works" below).
+- `brg switch claude` reads the active branch's rolling summary, hands
+  off full terminal control to `claude` with that context loaded, then
+  exits.
 
 For the full command reference and detailed guides — every flag, how
 context/checkpoints/sessions work, common workflows, troubleshooting, and
@@ -91,9 +93,15 @@ uninstall instructions — see [docs/USER_GUIDE.md](./docs/USER_GUIDE.md).
 | `brg switch <tool> -f, --fresh` | Same, but skip context — start a completely clean session | `brg switch codex --fresh` |
 | `brg checkpoint <message>` | Snapshot current state with a message, like `git commit` | `brg checkpoint "fixed the auth bug" --tool claude` |
 | `brg checkpoint <message> --tool <name>` | Attribute the checkpoint to a specific tool | `brg checkpoint "..." --tool codex` |
-| `brg log` | Print a timeline of checkpoints, most recent first | `brg log` |
-| `brg status` | Show active tool, last checkpoint, context size, today's checkpoint count | `brg status` |
-| `brg context show` | Print the current `.brg/context.md` to stdout | `brg context show` |
+| `brg log` | Print a timeline of checkpoints for the active branch | `brg log` |
+| `brg log --all` | Every branch's checkpoints, flat, tagged by branch | `brg log --all` |
+| `brg log --graph` | Render the active branch's checkpoint graph (`--all` for every branch) | `brg log --graph --all` |
+| `brg status` | Show active context branch, actual git branch (with a mismatch warning if they diverge), last checkpoint, summary size, today's checkpoint count | `brg status` |
+| `brg context show` | Print the active branch's rolling summary to stdout | `brg context show` |
+| `brg checkout <name>` | Create (if new) and switch to a brg context branch — see below | `brg checkout feature-payments` |
+| `brg diff <name>` / `brg diff <a> <b>` | Fact differences: active branch vs `<name>`, or two explicit branches | `brg diff main feature-payments` |
+| `brg merge <source>` | Merge a branch's context into the currently active branch | `brg merge feature-payments` |
+| `brg mcp` | Start brg's MCP server over stdio | `brg mcp` |
 | `brg --version` | Print the installed version | `brg --version` |
 | `brg --help` | Show all commands | `brg --help` |
 
@@ -101,34 +109,55 @@ Run `brg <command> --help` for any command's exact flags, or see
 [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) for a full breakdown of every
 flag with examples.
 
+`brg checkout <name>` is the single command for both creating and
+switching context branches — there's no separate `brg branch`. If
+`<name>` doesn't exist yet, it's created (asking whether to inherit facts
+from your current branch or start orphan, and whether to link a git
+branch — `--inherit`/`--orphan` and `--git`/`--no-git`/`--git=<name>`
+skip the prompts) and activated. If it already exists, `brg checkout`
+just switches to it — never an error. A brg branch's context and its
+(optional) linked git branch are independent: the **active brg branch is
+always the source of truth for context**, never the currently checked-out
+git branch.
+
 ## How it works
 
 `brg` keeps everything in plain, local files — no database, no server.
+Context is organized into **branches** — you can fork a separate thread
+of context to explore an angle without polluting the one you're already
+on, optionally linked to a real git branch, optionally not.
 
 ```
 .brg/
-├── context.md         Human-readable rolling summary of the project.
-│                       This is what gets injected on `brg switch`.
-├── config.yaml         Project-level settings (default tool, context
-│                        strategy).
-└── sessions/
-    └── <ISO-timestamp>.json    One file per checkpoint:
-                                  { timestamp, tool, message, contextSnapshot }
+├── objects/            Immutable, content-addressed checkpoint objects.
+├── branches/<name>/
+│   ├── intent.md         Restated goal for this branch, set at creation.
+│   ├── summary.md         Rolling summary, regenerated on every
+│   │                       checkpoint. This is what gets injected on
+│   │                       `brg switch` and shown by `brg context show`.
+│   └── facts.json         Structured facts (used by `brg diff`/`brg merge`).
+├── refs/
+│   ├── active           Which branch is currently active.
+│   └── git-map.json      Branch -> linked git branch, if any.
+└── config.yaml          Project-level settings (default tool, context
+                           strategy).
 ```
 
 A **checkpoint** is a snapshot of where the project stands — a message
-you write (git-commit style) that gets appended to `context.md` and
-recorded as its own session file. A **switch** first auto-checkpoints
-against whatever tool you were last using — trying that tool's own
-session summary, falling back to reading its transcript straight off
-disk if that's unavailable (e.g. it just hit a quota limit), and falling
-back to a plain message as a last resort — then reads the resulting
-`context.md` and hands it to the target tool as its starting context, so
-you don't have to re-explain what you were doing, even if the previous
-session ended abruptly.
+you write (git-commit style), recorded on the active branch. It's
+generated via a tiered fallback: trying the active tool's own session
+summary first, falling back to reading its transcript straight off disk
+if that's unavailable (e.g. it just hit a quota limit), and falling back
+to a plain message as a last resort. A **switch** first auto-checkpoints
+against whatever tool you were last using, then hands the active
+branch's freshly regenerated summary to the target tool as its starting
+context — so you don't have to re-explain what you were doing, even if
+the previous session ended abruptly.
 
-Everything is git-diffable — open `context.md` in a text editor and read
-your project history without running `brg` at all.
+Everything is plain, git-diffable JSON/Markdown — open any branch's
+`summary.md` in a text editor and read its history without running `brg`
+at all. See [docs/CONTEXT_VERSIONING.md](./docs/CONTEXT_VERSIONING.md)
+for the full data model and design.
 
 ## Supported AI CLIs
 
@@ -141,13 +170,18 @@ interface, no changes needed elsewhere in the codebase. Gemini CLI and
 OpenCode are natural candidates for a community-contributed adapter. See
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+A [Claude Code plugin](./plugin/) is also available — `SessionStart`/
+`PreCompact` hooks plus `brg mcp` bundled together. Codex has no
+equivalent plugin system today.
+
 ## Roadmap
 
-Phase 1 (above) is shipped, including auto-checkpoint on `brg switch` and
-tiered context summarization. Context branching (`brg branch`/`checkout`/
-`merge`), a diff/doctor toolset, and an opt-in "wrapper mode" for live
-session tracking are planned next, with cloud sync further out. Full
-detail in [ROADMAP.md](./ROADMAP.md).
+Phase 1 (auto-checkpoint on `brg switch`, tiered context summarization)
+and all of Phase 2 (context branching via `brg checkout`, `diff`/`merge`/
+`log --graph`, structured fact extraction, an MCP server, a Claude Code
+plugin, `brg dashboard`, and `brg export`) are shipped. Cloud sync is a
+future paid tier, further out; the CLI itself stays free and
+open-source forever. Full detail in [ROADMAP.md](./ROADMAP.md).
 
 ## Contributing
 

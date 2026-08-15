@@ -76,9 +76,15 @@ web_modules/
 # brg runtime data — generated per-project, never shipped with the repo
 .brg/
 
-# Local AI-assistant project instructions — internal working context,
-# not meant to be public
+# Local AI-assistant project instructions, working notes, and
+# session/design scratch files — internal working context, not meant to
+# be public or pushed to the remote
 CLAUDE.md
+.claude/
+*.local.md
+NOTES.md
+SCRATCH.md
+TODO.local.md
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

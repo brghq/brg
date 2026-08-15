@@ -3,6 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initCommand } from '../src/commands/init.js';
+import { getActiveBranch } from '../src/versioning/active.js';
+import { branchExists, readSummary } from '../src/versioning/branches.js';
+import { recordCheckpoint } from '../src/versioning/checkpoint.js';
 
 describe('brg init', () => {
   let cwd: string;
@@ -19,23 +22,26 @@ describe('brg init', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('creates .brg/context.md, config.yaml, and sessions/', () => {
+  it('creates .brg/config.yaml', () => {
     initCommand();
 
     expect(fs.existsSync(path.join(tmpDir, '.brg'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.brg', 'context.md'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.brg', 'config.yaml'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, '.brg', 'sessions'))).toBe(true);
-    expect(fs.statSync(path.join(tmpDir, '.brg', 'sessions')).isDirectory()).toBe(true);
   });
 
-  it('is idempotent — running twice does not throw or wipe existing context', () => {
+  it('is idempotent — running twice does not throw or wipe existing branch data', () => {
     initCommand();
-    fs.appendFileSync(path.join(tmpDir, '.brg', 'context.md'), '- existing note\n');
+    recordCheckpoint('main', 'claude', 'existing note', [], 'manual');
 
     expect(() => initCommand()).not.toThrow();
 
-    const content = fs.readFileSync(path.join(tmpDir, '.brg', 'context.md'), 'utf8');
-    expect(content).toContain('existing note');
+    expect(readSummary('main')).toContain('existing note');
+  });
+
+  it('activates a default "main" brg branch, even outside a git repo', () => {
+    initCommand();
+
+    expect(getActiveBranch()).toBe('main');
+    expect(branchExists('main')).toBe(true);
   });
 });

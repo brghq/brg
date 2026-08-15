@@ -3,11 +3,27 @@ import { buildProgram } from '../src/index.js';
 import { listAdapters } from '../src/tools/registry.js';
 
 describe('command parsing', () => {
-  it('registers all Phase 1 commands', () => {
+  it('registers all commands', () => {
     const program = buildProgram();
     const names = program.commands.map((c) => c.name()).sort();
     expect(names).toEqual(
-      ['checkpoint', 'context', 'init', 'log', 'setup', 'status', 'switch', 'tools'].sort(),
+      [
+        'checkout',
+        'checkpoint',
+        'context',
+        'dashboard',
+        'diff',
+        'export',
+        'hook',
+        'init',
+        'log',
+        'mcp',
+        'merge',
+        'setup',
+        'status',
+        'switch',
+        'tools',
+      ].sort(),
     );
   });
 
@@ -69,5 +85,51 @@ describe('command parsing', () => {
   it('registers exactly the two supported tool adapters', () => {
     const names = listAdapters().map((a) => a.name).sort();
     expect(names).toEqual(['claude', 'codex']);
+  });
+
+  it('routes "checkout <name> --inherit --git" with the parsed flags', async () => {
+    let received: { name?: string; options?: Record<string, unknown> } = {};
+    const program = buildProgram();
+    program.commands
+      .find((c) => c.name() === 'checkout')!
+      .action((name: string, options: Record<string, unknown>) => {
+        received = { name, options };
+      });
+
+    await program.parseAsync(['node', 'brg', 'checkout', 'feature-x', '--inherit', '--git']);
+
+    expect(received.name).toBe('feature-x');
+    expect(received.options?.inherit).toBe(true);
+    expect(received.options?.git).toBe(true);
+  });
+
+  it('routes "diff <name>" (one arg) with the second arg undefined', async () => {
+    let received: unknown[] = [];
+    const program = buildProgram();
+    program.commands
+      .find((c) => c.name() === 'diff')!
+      .action((...args: unknown[]) => {
+        received = args;
+      });
+
+    await program.parseAsync(['node', 'brg', 'diff', 'feature-x']);
+
+    expect(received[0]).toBe('feature-x');
+    expect(received[1]).toBeUndefined();
+  });
+
+  it('routes "log --all --graph" with both flags true', async () => {
+    let received: { options?: Record<string, unknown> } = {};
+    const program = buildProgram();
+    program.commands
+      .find((c) => c.name() === 'log')!
+      .action((options: Record<string, unknown>) => {
+        received = { options };
+      });
+
+    await program.parseAsync(['node', 'brg', 'log', '--all', '--graph']);
+
+    expect(received.options?.all).toBe(true);
+    expect(received.options?.graph).toBe(true);
   });
 });
