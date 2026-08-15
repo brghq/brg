@@ -159,13 +159,18 @@ interface, no changes needed elsewhere in the codebase. Gemini CLI and
 OpenCode are natural candidates for a community-contributed adapter. See
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+A [Claude Code plugin](./plugin/) is also available — `SessionStart`/
+`PreCompact` hooks plus `brg mcp` bundled together. Codex has no
+equivalent plugin system today.
+
 ## Roadmap
 
 Phase 1 (auto-checkpoint on `brg switch`, tiered context summarization)
 and the core of Phase 2 (context branching — `brg branch`/`checkout`/
-`diff`/`merge`/`log --graph`, plus an MCP server) are shipped. A Claude
-Code plugin (hooks + this MCP server bundled), `brg dashboard`, and
-`brg export` are planned next, with cloud sync further out. Full detail
+`diff`/`merge`/`log --graph`, an MCP server, and a Claude Code plugin) are
+shipped. `brg dashboard`, `brg export`, and structured fact extraction
+(so `brg diff`/`brg merge` have real facts to compare, not just an empty
+`facts.json`) are planned next, with cloud sync further out. Full detail
 in [ROADMAP.md](./ROADMAP.md).
 
 ## Contributing

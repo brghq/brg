@@ -74,6 +74,16 @@ of Semantic Versioning.
   use. `context_merge` can't prompt interactively (no TTY over MCP): it
   auto-merges anything with no conflict and returns real conflicts as
   data instead of committing; call it again with `resolutions` to finish.
+- `plugin/` — a Claude Code plugin bundling brg's hooks and MCP server.
+  `SessionStart` injects the active branch's `summary.md` as session
+  context (skipped when the session started via `/clear`, respecting an
+  explicit fresh-slate request); `PreCompact` checkpoints before Claude
+  Code wipes context, attributed to `config.defaultTool` or falling back
+  to `claude`. Both are backed by new `brg hook <event>` subcommands
+  (`session-start`, `pre-compact` — see `src/commands/hook.ts`), never
+  block their respective Claude Code event on failure. `.mcp.json`
+  registers `brg mcp` as the plugin's MCP server. Codex has no equivalent
+  plugin system yet, so this targets Claude Code only.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

@@ -16,6 +16,7 @@ import { checkoutCommand } from './commands/checkout.js';
 import { diffCommand } from './commands/diff.js';
 import { mergeCommand } from './commands/merge.js';
 import { mcpCommand } from './commands/mcp.js';
+import { hookCommand } from './commands/hook.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -99,6 +100,11 @@ export function buildProgram(): Command {
     .command('mcp')
     .description('Start brg\'s MCP server over stdio (context_search/commit/diff/merge)')
     .action(mcpCommand);
+
+  program
+    .command('hook <event>')
+    .description('Backing command for the Claude Code plugin\'s hooks (session-start, pre-compact)')
+    .action(hookCommand);
 
   return program;
 }

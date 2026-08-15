@@ -13,6 +13,7 @@ describe('command parsing', () => {
         'checkpoint',
         'context',
         'diff',
+        'hook',
         'init',
         'log',
         'mcp',

@@ -98,9 +98,16 @@ over data that's still empty.
   instead of committing — the calling agent decides and calls again with
   `resolutions` filled in to finish. **Status: shipped on
   `feature/phase-2`.**
-- Claude Code / Codex plugin — `SessionStart`/`PreCompact` hooks for
-  guaranteed context injection and pre-wipe checkpointing, plus the MCP
-  tools above for on-demand deeper search. **Status: not started.**
+- Claude Code plugin (`plugin/`) — `SessionStart` injects the active
+  branch's rolling summary as session context (skipped on `/clear`, so an
+  explicit fresh-slate request isn't fought), `PreCompact` checkpoints
+  before Claude Code wipes context, plus `brg mcp` bundled via
+  `plugin/.mcp.json` for on-demand deeper search. Both hooks are thin
+  `brg hook <event>` calls into the installed CLI — see
+  [`plugin/README.md`](./plugin/README.md). Codex has no equivalent
+  plugin/hook system today, so this targets Claude Code only, same
+  scoping as the `ToolAdapter` interface. **Status: shipped on
+  `feature/phase-2`.**
 - `brg dashboard` — local static server over `.brg/`, branch graph plus a
   per-checkpoint diff inspector; no database, no cloud dependency.
   **Status: not started.**
