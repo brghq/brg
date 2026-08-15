@@ -18,6 +18,7 @@ import { mergeCommand } from './commands/merge.js';
 import { mcpCommand } from './commands/mcp.js';
 import { hookCommand } from './commands/hook.js';
 import { dashboardCommand } from './commands/dashboard.js';
+import { exportCommand } from './commands/export.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -112,6 +113,14 @@ export function buildProgram(): Command {
     .description('Start a local web dashboard over .brg/ (branch graph + checkpoint inspector)')
     .option('--port <n>', 'port to listen on', String(4848))
     .action(dashboardCommand);
+
+  program
+    .command('export')
+    .description('Export a branch\'s context as a standalone Markdown or HTML file')
+    .option('--branch <name>', 'branch to export; defaults to the currently active branch')
+    .option('--format <md|html>', 'output format', 'md')
+    .option('--out <path>', 'output file path; defaults to brg-export-<branch>.<format>')
+    .action(exportCommand);
 
   return program;
 }

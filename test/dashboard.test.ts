@@ -233,6 +233,17 @@ describe('brg dashboard — real HTTP server', () => {
     expect(graph.nodes).toHaveLength(1);
   });
 
+  it('GET /api/graph.svg returns real SVG markup for the same data', async () => {
+    const checkpoint = recordCheckpoint('main', 'claude', 'did the thing', [], 'manual');
+
+    const res = await fetch(`${baseUrl}/api/graph.svg`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('image/svg+xml');
+    const svg = await res.text();
+    expect(svg).toContain('<svg');
+    expect(svg).toContain(checkpoint.id);
+  });
+
   it('GET /api/checkpoint/:id returns the checkpoint detail', async () => {
     const checkpoint = recordCheckpoint('main', 'claude', 'did the thing', [], 'manual');
 

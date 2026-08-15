@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { buildDashboardGraph, buildDashboardStats, getCheckpointDetail } from '../versioning/dashboard.js';
+import { renderGraphSvg } from '../versioning/graph-svg.js';
 import { amber } from '../utils/style.js';
 
 export interface DashboardOptions {
@@ -16,6 +17,11 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 
 function sendHtml(res: http.ServerResponse, body: string): void {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+  res.end(body);
+}
+
+function sendSvg(res: http.ServerResponse, body: string): void {
+  res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Content-Length': Buffer.byteLength(body) });
   res.end(body);
 }
 
@@ -49,6 +55,11 @@ export function createDashboardServer(cwd: string = process.cwd()): http.Server 
 
     if (url.pathname === '/api/graph') {
       sendJson(res, 200, buildDashboardGraph(cwd));
+      return;
+    }
+
+    if (url.pathname === '/api/graph.svg') {
+      sendSvg(res, renderGraphSvg(buildDashboardGraph(cwd)));
       return;
     }
 
@@ -150,15 +161,15 @@ const DASHBOARD_HTML = `<!doctype html>
   .panel { background: var(--paper); padding: 22px; overflow: auto; }
   .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-soft); margin: 0 0 18px; font-weight: 600; }
 
-  #graph rect.lane-band { fill: var(--paper); }
-  #graph rect.lane-band.odd { fill: #E4E0D5; }
-  #graph circle { fill: var(--paper); stroke: var(--amber); stroke-width: 2.5; cursor: pointer; }
-  #graph circle.selected { fill: var(--amber); }
-  #graph circle:hover { fill: var(--line); }
-  #graph circle.selected:hover { fill: var(--amber); }
-  #graph path { fill: none; stroke: var(--ink-soft); stroke-width: 1.5; opacity: 0.5; }
-  #graph text.lane-label { fill: var(--ink-soft); font-size: 11px; font-weight: 600; }
-  #graph text.node-label { fill: var(--ink-soft); font-size: 10px; }
+  #graph-container .lane-band { fill: var(--paper); }
+  #graph-container .lane-band.odd { fill: #E4E0D5; }
+  #graph-container .node { fill: var(--paper); stroke: var(--amber); stroke-width: 2.5; cursor: pointer; }
+  #graph-container .node.selected { fill: var(--amber); }
+  #graph-container .node:hover { fill: var(--line); }
+  #graph-container .node.selected:hover { fill: var(--amber); }
+  #graph-container .edge { fill: none; stroke: var(--ink-soft); stroke-width: 1.5; opacity: 0.5; }
+  #graph-container .lane-label { fill: var(--ink-soft); font-size: 11px; font-weight: 600; }
+  #graph-container .node-label { fill: var(--ink-soft); font-size: 10px; }
 
   .empty { color: var(--ink-soft); }
 
@@ -194,7 +205,7 @@ const DASHBOARD_HTML = `<!doctype html>
 <main>
   <div class="panel">
     <h2>Branch graph</h2>
-    <div id="graph-container"><svg id="graph" width="100%" height="360"></svg></div>
+    <div id="graph-container"></div>
   </div>
   <div class="panel">
     <h2>Checkpoint inspector</h2>
@@ -224,58 +235,14 @@ function renderStats(stats) {
   ).join('');
 }
 
-function renderGraph(graph) {
-  const svg = document.getElementById('graph');
-  const laneHeight = 70;
-  const colWidth = 90;
-  const marginLeft = 90;
-  const marginTop = 30;
-  const height = Math.max(200, graph.lanes.length * laneHeight + marginTop * 2);
-  svg.setAttribute('height', height);
-  svg.setAttribute('viewBox', '0 0 ' + (marginLeft + graph.nodes.length * colWidth + 40) + ' ' + height);
+async function renderGraph() {
+  const container = document.getElementById('graph-container');
+  const svgText = await (await fetch('/api/graph.svg')).text();
+  container.innerHTML = svgText;
 
-  const posOf = (id) => {
-    const n = graph.nodes.find((n) => n.id === id);
-    return n ? { x: marginLeft + n.x * colWidth, y: marginTop + n.y * laneHeight } : null;
-  };
-
-  const totalWidth = marginLeft + graph.nodes.length * colWidth + 40;
-  let svgContent = '';
-
-  graph.lanes.forEach((lane, i) => {
-    const y = marginTop + i * laneHeight;
-    const bandClass = i % 2 === 1 ? 'lane-band odd' : 'lane-band';
-    svgContent += '<rect class="' + bandClass + '" x="0" y="' + (y - laneHeight / 2) + '" width="' + totalWidth + '" height="' + laneHeight + '"></rect>';
-  });
-  graph.lanes.forEach((lane, i) => {
-    const y = marginTop + i * laneHeight;
-    svgContent += '<text class="lane-label" x="0" y="' + (y + 4) + '">' + lane + '</text>';
-  });
-
-  for (const node of graph.nodes) {
-    const to = posOf(node.id);
-    if (!to) continue;
-    const parents = node.parents ? node.parents : node.parent ? [node.parent] : [];
-    for (const parentId of parents) {
-      const from = posOf(parentId);
-      if (!from) continue;
-      const midX = (from.x + to.x) / 2;
-      svgContent += '<path d="M' + from.x + ',' + from.y + ' C ' + midX + ',' + from.y + ' ' + midX + ',' + to.y + ' ' + to.x + ',' + to.y + '" />';
-    }
-  }
-
-  for (const node of graph.nodes) {
-    const p = posOf(node.id);
-    if (!p) continue;
-    svgContent += '<circle data-id="' + node.id + '" cx="' + p.x + '" cy="' + p.y + '" r="7"></circle>';
-    svgContent += '<text class="node-label" x="' + p.x + '" y="' + (p.y - 14) + '" text-anchor="middle">' + node.shortId + '</text>';
-  }
-
-  svg.innerHTML = svgContent;
-
-  svg.querySelectorAll('circle').forEach((circle) => {
+  container.querySelectorAll('.node').forEach((circle) => {
     circle.addEventListener('click', () => {
-      svg.querySelectorAll('circle').forEach((c) => c.classList.remove('selected'));
+      container.querySelectorAll('.node').forEach((c) => c.classList.remove('selected'));
       circle.classList.add('selected');
       showCheckpoint(circle.getAttribute('data-id'));
     });
@@ -311,7 +278,7 @@ async function init() {
     document.getElementById('graph-container').innerHTML = '<p class="empty">No checkpoints recorded yet.</p>';
     return;
   }
-  renderGraph(graph);
+  await renderGraph();
 }
 
 init();

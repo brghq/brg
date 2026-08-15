@@ -14,6 +14,7 @@ describe('command parsing', () => {
         'context',
         'dashboard',
         'diff',
+        'export',
         'hook',
         'init',
         'log',

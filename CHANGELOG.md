@@ -96,6 +96,19 @@ of Semantic Versioning.
   (chars/4, labeled "(est.)") for the active branch's summary, alongside
   branch/checkpoint counts — no fabricated cache-hit-rate stat, since brg
   has no way to know what happens inside a real API call.
+- `versioning/graph-svg.ts`: server-side SVG rendering of the branch
+  graph, factored out so `brg dashboard` and `brg export` share one
+  rendering instead of two. The dashboard now fetches pre-rendered markup
+  from `/api/graph.svg` and layers click handlers on it, rather than
+  building the SVG client-side.
+- `brg export [--branch <name>] [--format md|html] [--out <path>]` —
+  free, local, no-account snapshot of a branch's context: intent,
+  chronological decision log (message + `facts_delta` per checkpoint),
+  and a facts table. Defaults to the active branch, Markdown format, and
+  `brg-export-<branch>.<format>`. HTML output is self-contained and
+  additionally embeds the branch graph as inline SVG (via
+  `graph-svg.ts`); notes print-to-PDF as the alternative rather than
+  bundling a PDF renderer.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

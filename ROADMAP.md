@@ -122,8 +122,14 @@ over data that's still empty.
   **Status: shipped on `feature/phase-2`.**
 - `brg export [--branch <name>] [--format md|html] [--out <path>]` — free,
   local, no-account snapshot of a branch's context to hand a teammate;
-  Markdown or self-contained HTML only (no bundled PDF renderer — use the
-  browser's print-to-PDF on the HTML export). **Status: not started.**
+  intent, chronological decision log (message + facts_delta per
+  checkpoint), and a facts table. Markdown or self-contained HTML only
+  (no bundled PDF renderer — the HTML export notes print-to-PDF as the
+  alternative). HTML additionally embeds the branch graph as inline SVG —
+  `versioning/graph-svg.ts` renders it server-side, shared with `brg
+  dashboard` (which fetches the same markup via `/api/graph.svg` rather
+  than duplicating the layout in client JS) — no separate render path.
+  **Status: shipped on `feature/phase-2`.**
 - **Structured fact extraction** — deliberately sequenced **last** in
   Phase 2, after everything above. An incremental, LLM-driven step at
   checkpoint time that decides what `facts_delta` a checkpoint should
