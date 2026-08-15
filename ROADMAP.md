@@ -98,16 +98,6 @@ over data that's still empty.
   instead of committing — the calling agent decides and calls again with
   `resolutions` filled in to finish. **Status: shipped on
   `feature/phase-2`.**
-- **Structured fact extraction** — an incremental, LLM-driven step at
-  checkpoint time that decides what `facts_delta` a checkpoint should
-  carry (per the design doc's Capture section), so `facts.json` stops
-  being permanently empty and `brg diff`/`brg merge` have real facts to
-  work with. The single highest-value remaining piece — placed here,
-  before the plugin, since the plugin's `SessionStart` hook is far more
-  useful once branch context is structured facts, not just a checkpoint
-  timeline. **Status: not started, not yet scoped** — needs its own
-  scoping discussion (cost/accuracy tradeoffs of the LLM call, when it
-  triggers, how failures degrade) before work starts.
 - Claude Code / Codex plugin — `SessionStart`/`PreCompact` hooks for
   guaranteed context injection and pre-wipe checkpointing, plus the MCP
   tools above for on-demand deeper search. **Status: not started.**
@@ -118,6 +108,16 @@ over data that's still empty.
   local, no-account snapshot of a branch's context to hand a teammate;
   Markdown or self-contained HTML only (no bundled PDF renderer — use the
   browser's print-to-PDF on the HTML export). **Status: not started.**
+- **Structured fact extraction** — deliberately sequenced **last** in
+  Phase 2, after everything above. An incremental, LLM-driven step at
+  checkpoint time that decides what `facts_delta` a checkpoint should
+  carry (per the design doc's Capture section), so `facts.json` stops
+  being permanently empty and `brg diff`/`brg merge` have real facts to
+  work with. It's the highest-*value* piece but also the riskiest/most
+  complex (LLM cost, accuracy, failure-mode design) — plugin/dashboard/
+  export are comparatively mechanical display layers over data that
+  already exists, so they go first. **Status: not started, not yet
+  scoped** — needs its own scoping discussion before work starts.
 - `brg doctor` — diagnose a broken `.brg/` setup or misconfigured tool
 - `brg run --all` — fan a prompt out to multiple tools in parallel
 - **Wrapper mode** (opt-in) — instead of handing off and exiting, `brg`
