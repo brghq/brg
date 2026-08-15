@@ -132,6 +132,13 @@ neither alone is sufficient:
 
 ## Capture (what triggers a checkpoint, and how it stays cheap)
 
+**Status: the tiered fallback is shipped and wired into every checkpoint
+path (`brg checkpoint`, `brg switch`'s auto-checkpoint, `brg mcp`'s
+`context_commit`). Structured fact extraction below is not built and not
+yet scheduled** — `facts_delta` is always empty today, so `brg diff`/`brg
+merge` have nothing real to compare yet even though the timeline
+(checkpoint objects, `summary.md`) is fully real. See ROADMAP.md.
+
 Reuses the tiered fallback already shipped for `brg switch`'s
 auto-checkpoint (`src/utils/transcript.ts`): tool's own
 `--continue`/`resume --last` summary first (zero LLM calls) → raw

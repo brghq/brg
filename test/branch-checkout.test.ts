@@ -189,7 +189,7 @@ describe('brg branch / brg checkout', () => {
 
   it('brg init installs the hook and activates a default branch matching the checked-out git branch', () => {
     initCommand();
-    expect(fs.existsSync(path.join(tmpDir, '.brg', 'context.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.brg', 'config.yaml'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.git', 'hooks', 'post-checkout'))).toBe(true);
     expect(getActiveBranch()).toBe('main');
     expect(branchExists('main')).toBe(true);

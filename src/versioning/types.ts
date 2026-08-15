@@ -27,6 +27,15 @@ export interface CheckpointObject {
   message: string;
   facts_delta: FactOp[];
   source: CheckpointSource;
+  // The full generated text for this checkpoint (a context strategy's
+  // output — tool self-summary, transcript excerpt, or a plain formatted
+  // line), when one was generated. This is what branches/<name>/summary.md
+  // is regenerated from; `message` alone is too short to be useful as a
+  // handoff summary. Absent for checkpoints that never went through a
+  // context strategy (e.g. an MCP context_commit call, or a merge
+  // checkpoint) — regeneration falls back to formatting `message` itself
+  // for those.
+  contextText?: string;
 }
 
 // Everything in CheckpointObject except `id` — the input to hashing and to

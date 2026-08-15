@@ -4,31 +4,43 @@
 planned, and what's exploratory — so it's clear what you can rely on today
 versus what's still an idea.
 
-## Phase 1 — Shipped (current, `0.1.0`)
+## Phase 1 — Shipped, now running on Phase 2 storage
 
 The core "carry context between AI CLIs" workflow, in handoff mode:
 
 - `brg setup` — interactive, idempotent install/auth wizard
 - `brg tools list` — installed/authenticated status per tool
-- `brg init` — create `.brg/` in a project
+- `brg init` — create `.brg/` in a project, activate a default branch
 - `brg switch <tool>` (`-f`/`--fresh` to skip context) — hand off to an AI CLI
 - `brg checkpoint "message"` — snapshot state, git-commit style
-- `brg log` — checkpoint timeline
-- `brg status` — active tool, last checkpoint, context size, today's count
-- `brg context show` — print the raw context file
-- Auto-checkpoint on `brg switch` — before handing off, captures the
-  session you're leaving via a tiered fallback chain (self-summarize →
-  raw transcript extract → manual message), so you don't lose anything
-  even if you switch without checkpointing first
-- Rule-based `context.md` compaction — older checkpoints roll into a
-  single summary line once the file passes a size threshold, so it stays
-  bounded as a project's history grows
+- `brg log` — checkpoint timeline (every branch, flat, newest first)
+- `brg status` — active branch/tool, last checkpoint, summary size, today's count
+- `brg context show` — print the active branch's rolling summary
 
 Supported tools: Claude Code, Codex (additional adapters — Gemini CLI,
 OpenCode, others — are a natural community contribution via the
 `ToolAdapter` interface).
 
-## Phase 2 — Planned
+**Architecture note:** these commands originally wrote to a flat
+`context.md` + `sessions/*.json` (Phase 1's own storage, predating
+branches). That storage has been **retired and deleted** — it was fully
+redundant with the branch-scoped versioning data below, and duplicating
+history in two formats wasn't worth maintaining. All of the above now run
+entirely on Phase 2 storage:
+- Auto-checkpoint on `brg switch` and the explicit `brg checkpoint`
+  command both go through `core/checkpoint.ts`'s `performCheckpoint`,
+  which generates text via the tiered fallback strategy (self-summarize →
+  transcript extract → manual message, see `context-strategies/`) and
+  records it on the active branch via `versioning/checkpoint.ts`'s
+  `recordCheckpoint`.
+- Each branch's `summary.md` is **fully regenerated** from its checkpoint
+  log on every checkpoint (see `versioning/summary.ts`) — a disposable,
+  bounded-size cache, not a source of truth (the source of truth is
+  `objects/` + `log.jsonl`, which are already durable and complete). No
+  append/compact/`.bak` bookkeeping needed, unlike the old `context.md`.
+  This is what `brg switch`/`brg status`/`brg context show` read.
+
+## Phase 2 — Core shipped, three pieces remain
 
 Context branching and richer session awareness. The design for context
 branching/diff/merge is decided — see
@@ -38,17 +50,16 @@ surface, and build sequence). It still ships one piece at a time, each
 scoped in its own discussion before work starts — this roadmap entry
 tracks status, the linked doc is the source of truth for design.
 
-`brg checkpoint` and `brg switch`'s auto-checkpoint (via the shared
-`core/checkpoint.ts` path) now also record a versioning checkpoint on the
-active brg branch, so `brg diff`/`brg merge`/`brg log --graph` have real
-history to work with in normal use — no separate step needed.
-`facts_delta` is always empty for now (no structured fact extraction
-yet, per the design doc's later, LLM-driven addition), so every
-checkpoint records message/timestamp/tool history but not yet structured
-facts; `brg diff`/`brg merge` on facts specifically still need
-checkpoints created with a real `facts_delta` (e.g. via
-`versioning/checkpoint.ts`'s `recordCheckpoint` directly, or a future
-command).
+**Structured fact extraction is not built yet, and not yet scheduled.**
+`facts_delta` is always empty on every checkpoint today — no code decides
+"what fact changed" from a checkpoint's content, since that needs an LLM
+call and is deliberately separate, later work (see the design doc's
+Capture section). Until it exists, `brg diff`/`brg merge` have nothing
+real to compare (facts.json is always `[]`), even though the timeline
+(`brg log`, `summary.md`, checkpoint objects) is fully real and populated.
+This is the single highest-value piece of remaining work — everything
+else in Phase 2 either already works end-to-end or is a display layer
+over data that's still empty.
 
 - `brg branch <name>` / `brg checkout <name>` — `brg branch` always
   creates the brg context branch first; a matching git branch is optional
@@ -87,6 +98,16 @@ command).
   instead of committing — the calling agent decides and calls again with
   `resolutions` filled in to finish. **Status: shipped on
   `feature/phase-2`.**
+- **Structured fact extraction** — an incremental, LLM-driven step at
+  checkpoint time that decides what `facts_delta` a checkpoint should
+  carry (per the design doc's Capture section), so `facts.json` stops
+  being permanently empty and `brg diff`/`brg merge` have real facts to
+  work with. The single highest-value remaining piece — placed here,
+  before the plugin, since the plugin's `SessionStart` hook is far more
+  useful once branch context is structured facts, not just a checkpoint
+  timeline. **Status: not started, not yet scoped** — needs its own
+  scoping discussion (cost/accuracy tradeoffs of the LLM call, when it
+  triggers, how failures degrade) before work starts.
 - Claude Code / Codex plugin — `SessionStart`/`PreCompact` hooks for
   guaranteed context injection and pre-wipe checkpointing, plus the MCP
   tools above for on-demand deeper search. **Status: not started.**

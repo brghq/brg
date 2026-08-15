@@ -19,7 +19,7 @@ export const manual: ContextStrategy = {
     const timestamp = new Date().toISOString();
     const gitSuffix = getGitSummary();
     const suffix = gitSuffix ? ` (${gitSuffix})` : '';
-    return `- [${timestamp}] ${tool.name}: ${userMessage}${suffix}`;
+    return { text: `- [${timestamp}] ${tool.name}: ${userMessage}${suffix}`, source: 'manual' };
   },
 };
 

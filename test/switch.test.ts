@@ -41,8 +41,7 @@ vi.mock('../src/tools/registry.js', () => {
 const { switchCommand } = await import('../src/commands/switch.js');
 const { initCommand } = await import('../src/commands/init.js');
 const { writeConfig, readConfig } = await import('../src/core/config.js');
-const { listSessions } = await import('../src/core/session.js');
-const { headCheckpoint, readLog } = await import('../src/versioning/branches.js');
+const { headCheckpoint, readLog, readSummary } = await import('../src/versioning/branches.js');
 const { readObject } = await import('../src/versioning/objects.js');
 
 describe('brg switch auto-checkpoint', () => {
@@ -69,11 +68,11 @@ describe('brg switch auto-checkpoint', () => {
 
     await switchCommand('codex', {});
 
-    const sessions = listSessions();
-    expect(sessions).toHaveLength(1);
-    const newest = sessions[sessions.length - 1];
-    expect(newest.tool).toBe('claude');
-    expect(newest.message).toContain('auto-checkpoint before switching to Codex');
+    const log = readLog('main');
+    expect(log).toHaveLength(1);
+    const checkpoint = readObject(log[0]);
+    expect(checkpoint?.tool).toBe('claude');
+    expect(checkpoint?.message).toContain('auto-checkpoint before switching to Codex');
     expect(codexLaunch).toHaveBeenCalledTimes(1);
     expect(readConfig().defaultTool).toBe('codex');
   });
@@ -84,12 +83,14 @@ describe('brg switch auto-checkpoint', () => {
     await switchCommand('codex', {});
     await switchCommand('claude', {});
 
-    const sessions = listSessions();
-    expect(sessions).toHaveLength(2);
-    expect(sessions[0].tool).toBe('claude');
-    expect(sessions[0].message).toContain('switching to Codex');
-    expect(sessions[1].tool).toBe('codex');
-    expect(sessions[1].message).toContain('switching to Claude Code');
+    const log = readLog('main');
+    expect(log).toHaveLength(2);
+    const first = readObject(log[0]);
+    const second = readObject(log[1]);
+    expect(first?.tool).toBe('claude');
+    expect(first?.message).toContain('switching to Codex');
+    expect(second?.tool).toBe('codex');
+    expect(second?.message).toContain('switching to Claude Code');
     expect(readConfig().defaultTool).toBe('claude');
   });
 
@@ -98,14 +99,14 @@ describe('brg switch auto-checkpoint', () => {
 
     await switchCommand('codex', { fresh: true });
 
-    expect(listSessions()).toHaveLength(0);
+    expect(readLog('main')).toEqual([]);
     expect(codexLaunch).toHaveBeenCalledWith(undefined);
   });
 
   it('skips auto-checkpoint when there is no prior active tool to attribute it to', async () => {
     await switchCommand('codex', {});
 
-    expect(listSessions()).toHaveLength(0);
+    expect(readLog('main')).toEqual([]);
     expect(codexLaunch).toHaveBeenCalledTimes(1);
     expect(readConfig().defaultTool).toBe('codex');
   });
@@ -120,11 +121,24 @@ describe('brg switch auto-checkpoint', () => {
     expect(readObject(head!)).toMatchObject({ tool: 'claude', source: 'manual' });
   });
 
-  it('--fresh skips the versioning checkpoint too, not just the session one', async () => {
+  it('--fresh skips the versioning checkpoint too', async () => {
     writeConfig({ contextStrategy: 'manual', defaultTool: 'claude' });
 
     await switchCommand('codex', { fresh: true });
 
     expect(readLog('main')).toEqual([]);
+  });
+
+  it('hands off the active branch summary as context, not undefined, once one exists', async () => {
+    writeConfig({ contextStrategy: 'manual', defaultTool: 'claude' });
+    await switchCommand('codex', {});
+    codexLaunch.mockClear();
+
+    await switchCommand('claude', {});
+
+    expect(claudeLaunch).toHaveBeenCalledTimes(1);
+    const [handoffText] = claudeLaunch.mock.calls[0] as [string | undefined];
+    expect(handoffText).toBe(readSummary('main').trim());
+    expect(handoffText).toContain('switching to Codex');
   });
 });

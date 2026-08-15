@@ -4,10 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { initCommand } from '../src/commands/init.js';
 import { checkpointCommand } from '../src/commands/checkpoint.js';
-import { listSessions } from '../src/core/session.js';
 import { writeConfig } from '../src/core/config.js';
 import { getActiveBranch, setActiveBranch } from '../src/versioning/active.js';
-import { createBranch, headCheckpoint, readLog } from '../src/versioning/branches.js';
+import { createBranch, headCheckpoint, readLog, readSummary } from '../src/versioning/branches.js';
 import { readObject } from '../src/versioning/objects.js';
 
 describe('brg checkpoint', () => {
@@ -20,9 +19,9 @@ describe('brg checkpoint', () => {
     process.chdir(tmpDir);
     initCommand();
     // Force the manual strategy here: these tests exercise checkpoint
-    // mechanics (session file shape, context.md append), not the
-    // ai-assisted tiering — and manual is the only strategy guaranteed not
-    // to shell out to a real, possibly-installed-and-authenticated CLI.
+    // mechanics, not the ai-assisted tiering — and manual is the only
+    // strategy guaranteed not to shell out to a real, possibly-installed-
+    // and-authenticated CLI.
     writeConfig({ contextStrategy: 'manual' });
   });
 
@@ -31,24 +30,31 @@ describe('brg checkpoint', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('writes a valid session file with the expected shape', async () => {
+  it('records a checkpoint object on the active branch with the expected shape', async () => {
+    const active = getActiveBranch();
+    expect(active).toBe('main');
+
     await checkpointCommand('did the thing', { tool: 'claude' });
 
-    const sessions = listSessions();
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]).toMatchObject({
+    const head = headCheckpoint(active!);
+    expect(head).not.toBeNull();
+    const checkpoint = readObject(head!);
+    expect(checkpoint).toMatchObject({
+      branch: 'main',
       tool: 'claude',
       message: 'did the thing',
+      parent: null,
+      facts_delta: [],
+      source: 'manual',
     });
-    expect(typeof sessions[0].timestamp).toBe('string');
-    expect(typeof sessions[0].contextSnapshot).toBe('string');
-    expect(sessions[0].contextSnapshot).toContain('did the thing');
+    expect(typeof checkpoint?.contextText).toBe('string');
+    expect(checkpoint?.contextText).toContain('did the thing');
   });
 
-  it('appends the checkpoint line to context.md', async () => {
+  it('regenerates the branch summary to include the new checkpoint', async () => {
     await checkpointCommand('second message', { tool: 'codex' });
 
-    const content = fs.readFileSync(path.join(tmpDir, '.brg', 'context.md'), 'utf8');
+    const content = readSummary('main');
     expect(content).toContain('codex: second message');
   });
 
@@ -67,26 +73,7 @@ describe('brg checkpoint', () => {
     fs.rmSync(freshDir, { recursive: true, force: true });
   });
 
-  it('also records a versioning checkpoint on the active branch', async () => {
-    const active = getActiveBranch();
-    expect(active).toBe('main');
-
-    await checkpointCommand('did the thing', { tool: 'claude' });
-
-    const head = headCheckpoint(active!);
-    expect(head).not.toBeNull();
-    const checkpoint = readObject(head!);
-    expect(checkpoint).toMatchObject({
-      branch: 'main',
-      tool: 'claude',
-      message: 'did the thing',
-      parent: null,
-      facts_delta: [],
-      source: 'manual',
-    });
-  });
-
-  it('two checkpoints in a row chain via parent on the versioning side', async () => {
+  it('two checkpoints in a row chain via parent', async () => {
     await checkpointCommand('first', { tool: 'claude' });
     await checkpointCommand('second', { tool: 'claude' });
 
@@ -96,15 +83,15 @@ describe('brg checkpoint', () => {
     expect(second?.parent).toBe(log[0]);
   });
 
-  it('does not crash and still writes the session/context.md if the active-branch pointer is missing', async () => {
+  it('errors cleanly, without crashing, when the active-branch pointer is missing', async () => {
     fs.rmSync(path.join(tmpDir, '.brg', 'refs', 'active'));
     expect(getActiveBranch()).toBeNull();
 
-    await checkpointCommand('did the thing anyway', { tool: 'claude' });
+    await expect(checkpointCommand('did the thing anyway', { tool: 'claude' })).resolves.toBeUndefined();
 
-    const sessions = listSessions();
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0].message).toBe('did the thing anyway');
+    expect(process.exitCode).toBe(1);
+    process.exitCode = 0;
+    expect(readLog('main')).toEqual([]);
   });
 
   it('records against whichever branch is active, not always "main"', async () => {

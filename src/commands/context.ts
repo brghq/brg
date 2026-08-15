@@ -1,5 +1,6 @@
 import { isInitialized } from '../core/config.js';
-import { readContext } from '../core/context.js';
+import { getActiveBranch } from '../versioning/active.js';
+import { readSummary } from '../versioning/branches.js';
 import { dim } from '../utils/style.js';
 
 export function contextShowCommand(): void {
@@ -9,9 +10,15 @@ export function contextShowCommand(): void {
     return;
   }
 
-  const content = readContext();
-  if (!content) {
-    console.log(dim('(context.md is empty)'));
+  const branch = getActiveBranch();
+  if (!branch) {
+    console.log(dim('(no active branch)'));
+    return;
+  }
+
+  const content = readSummary(branch);
+  if (!content.trim()) {
+    console.log(dim(`(no context recorded yet on "${branch}")`));
     return;
   }
   process.stdout.write(content);

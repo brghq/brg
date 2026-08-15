@@ -84,7 +84,7 @@ export function contextCommit(
   // No facts_delta here yet — same "message-only for now" scope as
   // brg checkpoint's own wiring (see core/checkpoint.ts). Structured fact
   // extraction is a separate, later, LLM-driven addition.
-  const checkpoint = recordCheckpoint(branch, input.tool ?? 'mcp', input.message, [], 'manual', cwd);
+  const checkpoint = recordCheckpoint(branch, input.tool ?? 'mcp', input.message, [], 'manual', undefined, cwd);
   return { checkpointId: checkpoint.id, branch };
 }
 

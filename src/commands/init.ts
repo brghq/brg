@@ -1,7 +1,5 @@
 import fs from 'node:fs';
 import { brgDir, configPath, writeConfig, isInitialized } from '../core/config.js';
-import { initContext } from '../core/context.js';
-import { sessionsDir } from '../core/session.js';
 import { getActiveBranch, setActiveBranch } from '../versioning/active.js';
 import { branchExists, createBranch } from '../versioning/branches.js';
 import { currentGitBranch, currentGitSha } from '../versioning/git.js';
@@ -48,8 +46,6 @@ export function initCommand(): void {
   }
 
   fs.mkdirSync(brgDir(), { recursive: true });
-  fs.mkdirSync(sessionsDir(), { recursive: true });
-  initContext();
   if (!fs.existsSync(configPath())) {
     // ai-assisted degrades all the way down to manual's own output when
     // nothing richer is available, so it's a safe default for new projects.

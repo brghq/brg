@@ -1,7 +1,8 @@
 import { getAdapter, listAdapters } from '../tools/registry.js';
-import { readContextForHandoff } from '../core/context.js';
 import { performCheckpoint } from '../core/checkpoint.js';
 import { isInitialized, readConfig, writeConfig } from '../core/config.js';
+import { getActiveBranch } from '../versioning/active.js';
+import { readSummary } from '../versioning/branches.js';
 import { dim } from '../utils/style.js';
 
 export interface SwitchOptions {
@@ -27,11 +28,11 @@ export async function switchCommand(toolName: string, options: SwitchOptions): P
     await autoCheckpointBeforeSwitch(tool.displayName);
   }
 
-  const contextText =
-    !options.fresh && isInitialized() ? readContextForHandoff() || undefined : undefined;
+  const activeBranch = !options.fresh && isInitialized() ? getActiveBranch() : null;
+  const contextText = activeBranch ? readSummary(activeBranch).trim() || undefined : undefined;
 
   if (!options.fresh && isInitialized() && !contextText) {
-    console.log(dim('(no context.md content yet — starting with an empty context)'));
+    console.log(dim('(no context recorded yet — starting with an empty context)'));
   }
 
   if (isInitialized()) {

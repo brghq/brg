@@ -46,8 +46,14 @@ export function readSummary(name: string, cwd: string = process.cwd()): string {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 }
 
+// Atomic write (tmp + rename): summary.md is regenerated on every
+// checkpoint (see versioning/summary.ts), so it's written far more often
+// than facts.json — worth the same crash-safety as writeFacts already has.
 export function writeSummary(name: string, summary: string, cwd: string = process.cwd()): void {
-  fs.writeFileSync(branchSummaryPath(name, cwd), summary, 'utf8');
+  const file = branchSummaryPath(name, cwd);
+  const tmpFile = `${file}.tmp`;
+  fs.writeFileSync(tmpFile, summary, 'utf8');
+  fs.renameSync(tmpFile, file);
 }
 
 /**

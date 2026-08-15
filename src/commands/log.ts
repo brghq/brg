@@ -1,4 +1,3 @@
-import { listSessions } from '../core/session.js';
 import { isInitialized } from '../core/config.js';
 import { collectGraphNodes, renderGraph, type GraphNode } from '../versioning/graph.js';
 import { amber, dim } from '../utils/style.js';
@@ -19,14 +18,17 @@ export function logCommand(options: LogOptions = {}): void {
     return;
   }
 
-  const sessions = listSessions().reverse();
-  if (sessions.length === 0) {
+  // Flat, project-wide, every branch's checkpoints together, newest
+  // first — same shape as before (Phase 1's sessions/*.json), now
+  // sourced from every branch's checkpoint objects instead.
+  const nodes = collectGraphNodes().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  if (nodes.length === 0) {
     console.log(dim('No checkpoints yet. Run "brg checkpoint <message>" to create one.'));
     return;
   }
 
-  for (const s of sessions) {
-    console.log(`${dim(s.timestamp)}  ${amber(s.tool)}  ${s.message}`);
+  for (const n of nodes) {
+    console.log(`${dim(n.timestamp)}  ${amber(n.tool)}  ${n.message}`);
   }
 }
 

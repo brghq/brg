@@ -52,13 +52,21 @@ of Semantic Versioning.
   correctly since brg's merge checkpoints only ever have exactly two
   parents, never an octopus merge). Without `--graph`, `brg log` behaves
   exactly as before.
-- `brg checkpoint` and `brg switch`'s auto-checkpoint now also record a
-  versioning checkpoint on the active brg branch (via
-  `core/checkpoint.ts`'s shared `performCheckpoint`), so `brg diff`/`brg
-  merge`/`brg log --graph` have real history in normal use instead of
-  requiring a separate step. Best-effort — never blocks the primary
-  context.md/session write. `facts_delta` is always empty for now (no
-  structured fact extraction yet).
+- `contextText` field on checkpoint objects — the full generated text
+  from a checkpoint's context strategy (tool self-summary, transcript
+  excerpt, or a plain formatted line), carried forward permanently since
+  it's what `summary.md` regeneration reads. `ContextStrategy.generate`
+  now returns `{ text, source }` instead of a bare string, so a
+  checkpoint's `source` field (`tool-summary`/`transcript-extract`/
+  `manual`) reflects which tier actually produced it, instead of always
+  being hardcoded to `manual`.
+- `versioning/summary.ts`: `regenerateSummary` rebuilds a branch's
+  `summary.md` from scratch from its checkpoint log on every checkpoint,
+  bounded by a character budget. Deliberately not append-and-compact like
+  the old `context.md` was — `objects/`+`log.jsonl` are already a
+  durable, complete history, so `summary.md` can be a disposable,
+  regenerated cache instead of something that itself needs careful
+  compaction/backup bookkeeping.
 - `brg mcp` — MCP server over stdio (new dependencies:
   `@modelcontextprotocol/sdk`, `zod`), exposing `context_search`,
   `context_commit`, `context_diff`, `context_merge`. Each tool wraps the
@@ -71,6 +79,32 @@ of Semantic Versioning.
 - User-facing messages ("already initialized", "not initialized yet",
   "branch already tracked") no longer reference the internal `.brg/`
   directory path — reworded in plain terms.
+- **`brg checkpoint`, `brg switch`, `brg status`, `brg context show`, and
+  `brg log` now run entirely on the branch-scoped versioning data model**
+  instead of Phase 1's flat `context.md`/`sessions/*.json`:
+  - `brg switch` hands off the active branch's `summary.md` instead of
+    `context.md`.
+  - `brg status` shows active branch, `summary.md` size, and
+    branch-scoped checkpoint count instead of `context.md` size and a
+    global session count.
+  - `brg context show` prints the active branch's `summary.md` instead
+    of `context.md`.
+  - `brg log` (without `--graph`) now lists every branch's checkpoints
+    together, flat and chronological, sourced from checkpoint objects
+    instead of `sessions/*.json` — same shape as before, new source.
+  - `brg checkpoint`/`brg switch` now error cleanly ("no active branch")
+    instead of silently degrading, since there's no longer a
+    context.md/session fallback path to degrade to — unreachable in
+    normal use since `brg init` always seeds an active branch.
+
+### Removed
+- **`context.md` and `sessions/*.json` (Phase 1's own storage) are
+  retired and deleted** — `src/core/context.ts` and `src/core/session.ts`
+  no longer exist. This storage was fully redundant with the
+  branch-scoped versioning data (mostly the same information, duplicated
+  in two formats) once every command that read/wrote it was switched
+  over to Phase 2 storage instead. Pre-1.0, no migration path is
+  provided — this is a clean break, not a deprecation.
 
 ### Fixed
 - `readLog` (branch checkpoint log) now skips a corrupt line with a

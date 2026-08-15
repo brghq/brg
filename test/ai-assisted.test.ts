@@ -22,10 +22,11 @@ describe('ai-assisted context strategy', () => {
       summarizeViaSelf: async () => 'decided to use SQLite, touched db.ts and schema.sql',
     });
 
-    const line = await aiAssisted.generate('wrap up db work', tool);
+    const result = await aiAssisted.generate('wrap up db work', tool);
 
-    expect(line).toContain('decided to use SQLite, touched db.ts and schema.sql');
-    expect(line).not.toContain('wrap up db work');
+    expect(result.source).toBe('tool-summary');
+    expect(result.text).toContain('decided to use SQLite, touched db.ts and schema.sql');
+    expect(result.text).not.toContain('wrap up db work');
   });
 
   it('falls through to tier 2 (transcript extract) when self-summarize is unavailable', async () => {
@@ -38,23 +39,25 @@ describe('ai-assisted context strategy', () => {
       }),
     });
 
-    const line = await aiAssisted.generate('wrap up auth work', tool);
+    const result = await aiAssisted.generate('wrap up auth work', tool);
 
-    expect(line).toContain('wrap up auth work');
-    expect(line).toContain('added middleware in auth.ts');
+    expect(result.source).toBe('transcript-extract');
+    expect(result.text).toContain('wrap up auth work');
+    expect(result.text).toContain('added middleware in auth.ts');
   });
 
   it('falls through to tier 3 (manual) when neither tier is available, matching manual output', async () => {
     const tool = baseAdapter();
 
-    const [aiLine, manualLine] = await Promise.all([
+    const [aiResult, manualResult] = await Promise.all([
       aiAssisted.generate('plain message', tool),
       manual.generate('plain message', tool),
     ]);
 
+    expect(aiResult.source).toBe('manual');
     // Both lines are generated close together and format identically apart
     // from the millisecond-precision timestamp.
-    expect(aiLine.replace(/\[.*?\]/, '[T]')).toBe(manualLine.replace(/\[.*?\]/, '[T]'));
+    expect(aiResult.text.replace(/\[.*?\]/, '[T]')).toBe(manualResult.text.replace(/\[.*?\]/, '[T]'));
   });
 
   it('falls through to tier 3 when tier 1 and tier 2 both come back empty', async () => {
@@ -63,9 +66,10 @@ describe('ai-assisted context strategy', () => {
       getLatestTranscript: () => null,
     });
 
-    const line = await aiAssisted.generate('nothing to extract', tool);
+    const result = await aiAssisted.generate('nothing to extract', tool);
 
-    expect(line).toContain('mock-tool: nothing to extract');
-    expect(line).not.toContain('<details>');
+    expect(result.source).toBe('manual');
+    expect(result.text).toContain('mock-tool: nothing to extract');
+    expect(result.text).not.toContain('<details>');
   });
 });

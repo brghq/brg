@@ -30,7 +30,7 @@ export const aiAssisted: ContextStrategy = {
     if (tool.summarizeViaSelf) {
       const summary = await tool.summarizeViaSelf(SUMMARY_INSTRUCTION);
       if (summary) {
-        return `- [${timestamp}] ${tool.name}: ${summary}`;
+        return { text: `- [${timestamp}] ${tool.name}: ${summary}`, source: 'tool-summary' };
       }
     }
 
@@ -40,15 +40,15 @@ export const aiAssisted: ContextStrategy = {
         const excerpt = extract.text.slice(-TRANSCRIPT_EXCERPT_CHARS);
         const truncated = extract.truncated || extract.text.length > TRANSCRIPT_EXCERPT_CHARS;
         const note = truncated ? ' (truncated)' : '';
-        return (
+        const text =
           `- [${timestamp}] ${tool.name}: ${userMessage}\n` +
           `  <details><summary>transcript excerpt${note}</summary>\n\n` +
           excerpt
             .split('\n')
             .map((line) => `  ${line}`)
             .join('\n') +
-          `\n  </details>`
-        );
+          `\n  </details>`;
+        return { text, source: 'transcript-extract' };
       }
     }
 
