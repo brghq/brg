@@ -387,10 +387,13 @@ describe('post-checkout git hook', () => {
     createBranch('feature-payments', 'root');
     setActiveBranch('main-ish'); // arbitrary — no branch of this name needs to exist for this check
     installPostCheckoutHook();
-    const hookPath = path.join(tmpDir, '.git', 'hooks', 'post-checkout');
 
-    execFileSync('git', ['branch', 'feature-payments'], { cwd: tmpDir });
-    execFileSync(hookPath, [], { cwd: tmpDir });
+    // Trigger the hook through a real `git checkout`, the way it actually
+    // fires in practice — invoking the hook file directly via the OS isn't
+    // portable (Windows has no shebang association for a plain `#!/bin/sh`
+    // script; git itself resolves and runs hooks via its own bundled shell
+    // on every platform).
+    execFileSync('git', ['checkout', '-b', 'feature-payments'], { cwd: tmpDir });
 
     expect(getActiveBranch()).toBe('main-ish');
   });
