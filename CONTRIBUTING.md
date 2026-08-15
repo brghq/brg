@@ -48,8 +48,8 @@ brg --help
 
 We loosely follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
-feat: add brg branch --list command
-fix: context.md not loading on Windows paths
+feat: add brg checkout --list flag
+fix: summary.md regeneration dropping the newest checkpoint on Windows paths
 docs: clarify setup wizard flow in README
 ```
 Not strictly enforced, but it makes `brg log`-style history much easier to

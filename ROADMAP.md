@@ -13,7 +13,8 @@ The core "carry context between AI CLIs" workflow, in handoff mode:
 - `brg init` — create `.brg/` in a project, activate a default branch
 - `brg switch <tool>` (`-f`/`--fresh` to skip context) — hand off to an AI CLI
 - `brg checkpoint "message"` — snapshot state, git-commit style
-- `brg log` — checkpoint timeline (every branch, flat, newest first)
+- `brg log` — checkpoint timeline for the active branch, newest first
+  (`--all` for every branch, `--graph` for a graph view — see Phase 2)
 - `brg status` — active branch/tool, last checkpoint, summary size, today's count
 - `brg context show` — print the active branch's rolling summary
 
@@ -40,26 +41,15 @@ entirely on Phase 2 storage:
   append/compact/`.bak` bookkeeping needed, unlike the old `context.md`.
   This is what `brg switch`/`brg status`/`brg context show` read.
 
-## Phase 2 — Core shipped, three pieces remain
+## Phase 2 — Shipped
 
-Context branching and richer session awareness. The design for context
-branching/diff/merge is decided — see
-[docs/CONTEXT_VERSIONING.md](./docs/CONTEXT_VERSIONING.md) for the full
-architecture (data model, git integration, merge engine, MCP/plugin
-surface, and build sequence). It still ships one piece at a time, each
-scoped in its own discussion before work starts — this roadmap entry
-tracks status, the linked doc is the source of truth for design.
-
-**Structured fact extraction is not built yet, and not yet scheduled.**
-`facts_delta` is always empty on every checkpoint today — no code decides
-"what fact changed" from a checkpoint's content, since that needs an LLM
-call and is deliberately separate, later work (see the design doc's
-Capture section). Until it exists, `brg diff`/`brg merge` have nothing
-real to compare (facts.json is always `[]`), even though the timeline
-(`brg log`, `summary.md`, checkpoint objects) is fully real and populated.
-This is the single highest-value piece of remaining work — everything
-else in Phase 2 either already works end-to-end or is a display layer
-over data that's still empty.
+Context branching and richer session awareness. The design is decided —
+see [docs/CONTEXT_VERSIONING.md](./docs/CONTEXT_VERSIONING.md) for the
+full architecture (data model, git integration, merge engine, MCP/plugin
+surface, and build sequence) — and every piece below, including
+structured fact extraction, is implemented and shipped on
+`feature/phase-2`. `brg diff`/`brg merge` compare real fact data now, not
+empty placeholders.
 
 - `brg checkout <name>` — the single command for both creating and
   switching brg context branches (there is no separate `brg branch`). If

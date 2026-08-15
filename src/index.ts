@@ -67,13 +67,13 @@ export function buildProgram(): Command {
 
   program
     .command('status')
-    .description('Show active tool, last checkpoint, context size, and today\'s session count')
+    .description('Show active branch/tool, checked-out git branch, last checkpoint, context size, and today\'s checkpoint count')
     .action(statusCommand);
 
   const context = program.command('context').description('Inspect project context');
   context
     .command('show')
-    .description('Print the current .brg/context.md to stdout')
+    .description('Print the active branch\'s rolling context summary to stdout')
     .action(contextShowCommand);
 
   program
