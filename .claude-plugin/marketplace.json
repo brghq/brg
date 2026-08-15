@@ -1,0 +1,15 @@
+{
+  "name": "brg",
+  "owner": {
+    "name": "Shivam Shukla",
+    "url": "https://github.com/brghq"
+  },
+  "plugins": [
+    {
+      "name": "brg",
+      "source": "./plugin",
+      "description": "Never explain yourself twice — injects brg's branch-scoped project context into every Claude Code session, and checkpoints before compaction so nothing gets lost.",
+      "homepage": "https://github.com/brghq/brg"
+    }
+  ]
+}

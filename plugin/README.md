@@ -21,6 +21,21 @@ Codex has no equivalent plugin/hook system today, so this plugin targets
 Claude Code only — same scoping as the `ToolAdapter` interface only
 supporting Claude Code and Codex for now.
 
+## Installing
+
+The repo root's [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)
+is the catalog file Claude Code's marketplace flow looks for — it's what
+makes `brghq/brg` addable as a plugin source at all, separate from this
+directory's own `plugin.json`. In Claude Code:
+
+```
+/plugin marketplace add https://github.com/brghq/brg
+```
+
+then install the `brg` plugin from that marketplace via `/plugin`. `brg`
+itself must already be installed and on `PATH` (`npm install -g brg-cli`)
+— see the note at the top of this file.
+
 ## Maintenance note
 
 `plugin.json`'s `version` is not derived automatically from
