@@ -4,6 +4,7 @@ import { recordCheckpoint, recordMergeCheckpoint } from '../versioning/checkpoin
 import { diffFacts, type FactDiffEntry } from '../versioning/diff.js';
 import { applyConflictChoice, mergeFacts, type ConflictChoice, type FactConflict } from '../versioning/merge.js';
 import { readObject } from '../versioning/objects.js';
+import type { FactOp } from '../versioning/types.js';
 
 // Pure request/response logic for the MCP server's four tools — no MCP
 // SDK types here, so this is testable directly without spinning up a
@@ -67,6 +68,13 @@ export interface ContextCommitInput {
   message: string;
   branch?: string;
   tool?: string;
+  // Lets the calling agent record its own understanding directly — its
+  // own live reasoning about what changed in this session — instead of
+  // brg retrospectively asking a tool to guess (which is what
+  // core/checkpoint.ts's performCheckpoint does for brg checkpoint/brg
+  // switch). This is the "push" fact-extraction path; that one is the
+  // "pull"/reliable path. Both write through the same recordCheckpoint.
+  facts?: FactOp[];
 }
 
 export interface ContextCommitResult {
@@ -81,10 +89,9 @@ export function contextCommit(
   const branch = resolveBranch(input.branch, cwd);
   if (typeof branch !== 'string') return branch;
 
-  // No facts_delta here yet — same "message-only for now" scope as
-  // brg checkpoint's own wiring (see core/checkpoint.ts). Structured fact
-  // extraction is a separate, later, LLM-driven addition.
-  const checkpoint = recordCheckpoint(branch, input.tool ?? 'mcp', input.message, [], 'manual', undefined, cwd);
+  const facts = input.facts ?? [];
+  const source = facts.length > 0 ? 'mcp-agent' : 'manual';
+  const checkpoint = recordCheckpoint(branch, input.tool ?? 'mcp', input.message, facts, source, undefined, cwd);
   return { checkpointId: checkpoint.id, branch };
 }
 

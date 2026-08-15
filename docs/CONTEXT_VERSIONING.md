@@ -132,24 +132,31 @@ neither alone is sufficient:
 
 ## Capture (what triggers a checkpoint, and how it stays cheap)
 
-**Status: the tiered fallback is shipped and wired into every checkpoint
-path (`brg checkpoint`, `brg switch`'s auto-checkpoint, `brg mcp`'s
-`context_commit`). Structured fact extraction below is not built and not
-yet scheduled** — `facts_delta` is always empty today, so `brg diff`/`brg
-merge` have nothing real to compare yet even though the timeline
-(checkpoint objects, `summary.md`) is fully real. See ROADMAP.md.
+**Status: shipped**, including structured fact extraction, via two
+complementary paths:
 
-Reuses the tiered fallback already shipped for `brg switch`'s
-auto-checkpoint (`src/utils/transcript.ts`): tool's own
-`--continue`/`resume --last` summary first (zero LLM calls) → raw
-transcript extract → manual message. Structured fact extraction is the one
-addition, and it is:
+- **Reliable path** (`brg checkpoint`, `brg switch`'s auto-checkpoint, the
+  plugin's `PreCompact` hook — all going through
+  `core/checkpoint.ts`'s `performCheckpoint`): the tiered fallback
+  (tool's own `--continue`/`resume --last` summary first → raw transcript
+  extract → manual message) now requests summary **and** facts together
+  in tier 1's single call, rather than a second call — see
+  `context-strategies/ai-assisted.ts` and `parse-facts-response.ts`. This
+  fires unconditionally at every checkpoint boundary brg itself controls.
+- **Opportunistic path** (`brg mcp`'s `context_commit`): an MCP-connected
+  agent can push structured facts directly, from its own live
+  understanding, in the same call as its checkpoint message — zero extra
+  LLM calls. Model-discretionary (the agent has to choose to call it),
+  so it's additive on top of the reliable path, never a replacement for
+  it.
+
+Both paths write through the same `recordCheckpoint` — see Data model
+above. Original design notes, still accurate:
 
 - **Incremental** — only the delta since the last checkpoint is sent to the
   model, never the full session.
 - **Triggered at natural boundaries** — `brg checkpoint`, `brg switch`, and
-  (once the plugin exists) `PreCompact`/`SessionEnd` hooks — not on every
-  turn.
+  `PreCompact` — not on every turn.
 
 ## Diff engine
 
@@ -273,7 +280,13 @@ without either side needing brg installed to read it.
 ## Open decisions
 
 - Exact confidence/provenance model for facts extracted vs. facts manually
-  stated — not yet designed.
+  stated — still not designed. Now more concrete: facts can arrive via
+  the reliable path's live model call (`ai-assisted` tier 1) or the
+  opportunistic path (`context_commit`'s `facts`, from an agent's own
+  live understanding) — `Fact.confidence` is currently always `'stated'`
+  regardless of which one produced it (see `applyFactsDelta`'s default).
+  Whether these two provenances should carry different confidence values
+  is exactly this open decision, now with real cases to design against.
 - Branch garbage collection / pruning strategy for long-lived projects —
   explicitly unsolved in both reference papers too.
 - Whether merge conflict resolution UX lives in the CLI, the dashboard, or

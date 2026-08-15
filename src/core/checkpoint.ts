@@ -2,6 +2,7 @@ import { readConfig } from './config.js';
 import { manual } from '../context-strategies/manual.js';
 import { aiAssisted } from '../context-strategies/ai-assisted.js';
 import { getActiveBranch } from '../versioning/active.js';
+import { readFacts } from '../versioning/branches.js';
 import { recordCheckpoint } from '../versioning/checkpoint.js';
 import type { ContextStrategy } from '../context-strategies/types.js';
 import type { ToolAdapter } from '../tools/types.js';
@@ -18,17 +19,22 @@ function activeStrategy(cwd: string): ContextStrategy {
 }
 
 /**
- * Generates a checkpoint's context text via the active strategy (tiered
- * self-summary/transcript/manual fallback — see context-strategies/) and
- * records it on the currently active brg branch. This is the single path
- * both the explicit `brg checkpoint` command and `brg switch`'s
- * auto-checkpoint go through, so both stay in sync.
+ * Generates a checkpoint's context text (and, when the active strategy
+ * can produce them, structured facts) via the active strategy — see
+ * context-strategies/ — and records it on the currently active brg
+ * branch. This is the single path both the explicit `brg checkpoint`
+ * command and `brg switch`'s auto-checkpoint go through, so both stay in
+ * sync.
  *
- * facts_delta is always empty here — structured fact extraction is a
- * separate, later, LLM-driven addition (see design doc). The generated
- * text is still valuable on its own: it's what branches/<name>/summary.md
- * gets regenerated from (see versioning/summary.ts), which is what
- * `brg switch`/`brg status`/`brg context show` read.
+ * This is the "reliable" fact-extraction path (the other is `brg mcp`'s
+ * `context_commit`, which lets an MCP-connected agent push facts
+ * directly instead of brg retrospectively asking the tool to guess) —
+ * this one fires unconditionally at every checkpoint boundary
+ * (`brg checkpoint`, `brg switch`, the plugin's `PreCompact` hook),
+ * regardless of whether any agent chose to call an MCP tool. Only the
+ * `ai-assisted` strategy's tier 1 actually extracts facts (it's the only
+ * tier that makes a live model call); `manual` and ai-assisted's tiers
+ * 2/3 always come back with an empty facts_delta — see ai-assisted.ts.
  *
  * Throws if there's no active branch — unreachable in normal use, since
  * `brg init` always seeds one; the caller (checkpointCommand/switchCommand)
@@ -45,7 +51,8 @@ export async function performCheckpoint(
   }
 
   const strategy = activeStrategy(cwd);
-  const { text, source } = await strategy.generate(message, tool);
+  const existingFacts = readFacts(branch, cwd);
+  const { text, source, factsDelta } = await strategy.generate(message, tool, existingFacts);
 
-  return recordCheckpoint(branch, tool.name, message, [], source, text, cwd);
+  return recordCheckpoint(branch, tool.name, message, factsDelta, source, text, cwd);
 }

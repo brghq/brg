@@ -19,7 +19,9 @@ export const manual: ContextStrategy = {
     const timestamp = new Date().toISOString();
     const gitSuffix = getGitSummary();
     const suffix = gitSuffix ? ` (${gitSuffix})` : '';
-    return { text: `- [${timestamp}] ${tool.name}: ${userMessage}${suffix}`, source: 'manual' };
+    // No AI call here by design (see the doc comment above) — factsDelta
+    // is always empty, since only a live model call can extract facts.
+    return { text: `- [${timestamp}] ${tool.name}: ${userMessage}${suffix}`, source: 'manual', factsDelta: [] };
   },
 };
 

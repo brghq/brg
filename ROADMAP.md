@@ -130,16 +130,37 @@ over data that's still empty.
   dashboard` (which fetches the same markup via `/api/graph.svg` rather
   than duplicating the layout in client JS) — no separate render path.
   **Status: shipped on `feature/phase-2`.**
-- **Structured fact extraction** — deliberately sequenced **last** in
-  Phase 2, after everything above. An incremental, LLM-driven step at
-  checkpoint time that decides what `facts_delta` a checkpoint should
-  carry (per the design doc's Capture section), so `facts.json` stops
-  being permanently empty and `brg diff`/`brg merge` have real facts to
-  work with. It's the highest-*value* piece but also the riskiest/most
-  complex (LLM cost, accuracy, failure-mode design) — plugin/dashboard/
-  export are comparatively mechanical display layers over data that
-  already exists, so they go first. **Status: not started, not yet
-  scoped** — needs its own scoping discussion before work starts.
+- **Structured fact extraction** — two complementary paths, matching how
+  a checkpoint can actually originate. Neither calls a new API or needs
+  an API key — both reuse `ToolAdapter.summarizeViaSelf`/MCP, the same
+  "shell out to the tool's own auth" principle every other AI-touching
+  piece of brg already follows:
+  - **Reliable path** (`core/checkpoint.ts`'s `performCheckpoint`, used
+    by `brg checkpoint`, `brg switch`'s auto-checkpoint, and the plugin's
+    `PreCompact` hook): fires unconditionally at every checkpoint
+    boundary brg itself controls, regardless of whether any agent chose
+    to call an MCP tool. Only `ai-assisted`'s tier 1 extracts facts (the
+    only tier making a live model call) — a **combined** summary+facts
+    JSON request (one call, not two) to `tool.summarizeViaSelf`, fed the
+    branch's current facts so it reports only what's new/changed. Falls
+    back to treating the raw response as a plain summary (facts empty)
+    if the model doesn't follow the JSON format —
+    `context-strategies/parse-facts-response.ts` is deliberately tolerant
+    (strips markdown code fences, drops individually-malformed fact
+    entries rather than rejecting the whole response). `manual` and
+    ai-assisted's tiers 2/3 always produce `factsDelta: []` — no live
+    model call, nothing to extract from.
+  - **Opportunistic path** (`brg mcp`'s `context_commit`): an
+    MCP-connected agent can push structured facts directly in the same
+    call as its checkpoint message, based on its own live understanding
+    — zero extra LLM calls from brg's side, most accurate (the agent
+    that just did the work describes it). This is genuinely what the MCP
+    server was built for, but per the design doc it's
+    model-discretionary — the agent has to choose to call it — so it's
+    additive, never the mechanism brg depends on for "control." Records
+    with `source: 'mcp-agent'` (a new `CheckpointSource` value) when
+    facts are actually provided, `'manual'` otherwise.
+  **Status: shipped on `feature/phase-2`.**
 - `brg doctor` — diagnose a broken `.brg/` setup or misconfigured tool
 - `brg run --all` — fan a prompt out to multiple tools in parallel
 - **Wrapper mode** (opt-in) — instead of handing off and exiting, `brg`

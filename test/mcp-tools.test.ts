@@ -114,6 +114,43 @@ describe('mcp/tools', () => {
       expect(headCheckpoint('feature')).not.toBeNull();
       expect(headCheckpoint('main')).toBeNull();
     });
+
+    it('records facts pushed directly by the calling agent, with source "mcp-agent"', () => {
+      createBranch('main', 'root');
+      setActiveBranch('main');
+
+      const result = contextCommit({
+        message: 'chose stripe',
+        facts: [{ op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' }],
+      });
+
+      const id = 'checkpointId' in result ? result.checkpointId : undefined;
+      expect(readObject(id!)).toMatchObject({
+        source: 'mcp-agent',
+        facts_delta: [{ op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' }],
+      });
+      expect(readFacts('main')).toHaveLength(1);
+    });
+
+    it('uses source "manual" when no facts are pushed, same as before', () => {
+      createBranch('main', 'root');
+      setActiveBranch('main');
+
+      const result = contextCommit({ message: 'just a note' });
+
+      const id = 'checkpointId' in result ? result.checkpointId : undefined;
+      expect(readObject(id!)).toMatchObject({ source: 'manual', facts_delta: [] });
+    });
+
+    it('an empty facts array also uses source "manual", not "mcp-agent"', () => {
+      createBranch('main', 'root');
+      setActiveBranch('main');
+
+      const result = contextCommit({ message: 'just a note', facts: [] });
+
+      const id = 'checkpointId' in result ? result.checkpointId : undefined;
+      expect(readObject(id!)?.source).toBe('manual');
+    });
   });
 
   describe('contextDiff', () => {

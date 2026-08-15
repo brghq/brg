@@ -40,11 +40,25 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     'context_commit',
     {
-      description: 'Record a checkpoint on a brg branch, like `brg checkpoint`. Defaults to the currently active branch.',
+      description:
+        'Record a checkpoint on a brg branch, like `brg checkpoint`. Defaults to the currently active branch. ' +
+        'If you (the calling agent) know structured facts that changed this session, include them in `facts` ' +
+        'rather than leaving brg to guess them later — you have the live context, brg doesn\'t.',
       inputSchema: {
         message: z.string().describe('Checkpoint message'),
         branch: z.string().optional().describe('Branch name; defaults to the currently active brg branch'),
         tool: z.string().optional().describe('Tool name to attribute this checkpoint to'),
+        facts: z
+          .array(
+            z.object({
+              op: z.enum(['add', 'remove']),
+              subject: z.string().describe('Short noun, e.g. "payments"'),
+              relation: z.string().describe('Short relation, e.g. "provider"'),
+              object: z.string().describe('Short value, e.g. "stripe"'),
+            }),
+          )
+          .optional()
+          .describe('Structured facts established or changed in this session, if any'),
       },
     },
     async (input) => textResult(contextCommit(input)),

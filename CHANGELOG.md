@@ -109,6 +109,30 @@ of Semantic Versioning.
   additionally embeds the branch graph as inline SVG (via
   `graph-svg.ts`); notes print-to-PDF as the alternative rather than
   bundling a PDF renderer.
+- Structured fact extraction — two paths, no new dependency or API key
+  (reuses `ToolAdapter.summarizeViaSelf`/MCP, same principle as every
+  other AI-touching part of brg):
+  - `ai-assisted`'s tier 1 now requests a **combined** summary+facts JSON
+    response from the active tool in one call (previously summary only),
+    fed the branch's current facts so it reports only what's new. Falls
+    back to the raw response as plain summary text (facts empty) if the
+    model doesn't return valid JSON — never blocks a checkpoint.
+    `context-strategies/parse-facts-response.ts` tolerantly parses it
+    (strips markdown code fences, drops individually-malformed fact
+    entries). `manual` and ai-assisted's tiers 2/3 always produce
+    `factsDelta: []`. `ContextStrategy.generate` now takes the branch's
+    existing facts as a third argument and returns `factsDelta`
+    alongside `text`/`source`.
+  - `brg mcp`'s `context_commit` gains an optional `facts` array, letting
+    an MCP-connected agent push structured facts directly from its own
+    live understanding in the same call as its checkpoint message —
+    zero extra LLM calls. Records with the new `source: 'mcp-agent'`
+    when facts are provided, `'manual'` otherwise.
+  - `core/checkpoint.ts`'s `performCheckpoint` (shared by `brg
+    checkpoint`, `brg switch`'s auto-checkpoint, and the plugin's
+    `PreCompact` hook) now reads the branch's existing facts and passes
+    the strategy's extracted `factsDelta` through to `recordCheckpoint`
+    instead of always `[]`.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

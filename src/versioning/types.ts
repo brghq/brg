@@ -10,7 +10,10 @@ export interface FactOp {
   object: string;
 }
 
-export type CheckpointSource = 'tool-summary' | 'transcript-extract' | 'manual';
+// 'mcp-agent': facts pushed directly by an MCP-connected agent's own
+// context_commit call (its own live understanding, not brg retrospectively
+// asking a tool to guess) — see mcp/tools.ts's contextCommit.
+export type CheckpointSource = 'tool-summary' | 'transcript-extract' | 'manual' | 'mcp-agent';
 
 // A checkpoint has either `parent` (normal checkpoint, single lineage) or
 // `parents` (merge checkpoint, two lineages) — never both populated.

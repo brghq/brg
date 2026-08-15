@@ -89,6 +89,47 @@ describe('brg mcp server (end-to-end over in-memory transport)', () => {
     expect(parsed.recentCheckpoints.map((c) => c.message)).toContain('did the thing');
   });
 
+  it('context_commit with facts pushes structured facts through the real MCP schema (zod) validation', async () => {
+    createBranch('main', 'root');
+    setActiveBranch('main');
+
+    const { client } = await connectedClient();
+    const result = await client.callTool({
+      name: 'context_commit',
+      arguments: {
+        message: 'chose stripe',
+        facts: [{ op: 'add', subject: 'payments', relation: 'provider', object: 'stripe' }],
+      },
+    });
+
+    expect(textOf(result)).toMatchObject({ branch: 'main' });
+
+    const searchResult = await client.callTool({ name: 'context_search', arguments: {} });
+    const parsed = textOf(searchResult) as { facts: { subject: string; relation: string; object: string }[] };
+    expect(parsed.facts).toContainEqual({ subject: 'payments', relation: 'provider', object: 'stripe' });
+  });
+
+  it('context_commit reports a schema validation error for a malformed facts entry (invalid op)', async () => {
+    createBranch('main', 'root');
+    setActiveBranch('main');
+
+    const { client } = await connectedClient();
+    const result = await client.callTool({
+      name: 'context_commit',
+      arguments: {
+        message: 'bad facts',
+        facts: [{ op: 'not-a-real-op', subject: 's', relation: 'r', object: 'o' }],
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    // Nothing should have been recorded — validation failed before our
+    // handler ever ran.
+    const searchResult = await client.callTool({ name: 'context_search', arguments: {} });
+    const parsed = textOf(searchResult) as { facts: unknown[] };
+    expect(parsed.facts).toEqual([]);
+  });
+
   it('context_diff reports an error over the wire for an unknown branch', async () => {
     createBranch('main', 'root');
     const { client } = await connectedClient();
