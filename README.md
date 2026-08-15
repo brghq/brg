@@ -110,15 +110,12 @@ Run `brg <command> --help` for any command's exact flags, or see
 flag with examples.
 
 `brg checkout <name>` is the single command for both creating and
-switching context branches — there's no separate `brg branch`. If
-`<name>` doesn't exist yet, it's created (asking whether to inherit facts
-from your current branch or start orphan, and whether to link a git
-branch — `--inherit`/`--orphan` and `--git`/`--no-git`/`--git=<name>`
-skip the prompts) and activated. If it already exists, `brg checkout`
-just switches to it — never an error. A brg branch's context and its
-(optional) linked git branch are independent: the **active brg branch is
-always the source of truth for context**, never the currently checked-out
-git branch.
+switching context branches — there's no separate `brg branch`, and it
+never errors on an existing name. A brg branch's linked git branch is
+optional: **the active brg branch is always the source of truth for
+context**, never the currently checked-out git branch. See
+[docs/USER_GUIDE.md](./docs/USER_GUIDE.md#brg-checkout-name) for the full
+flag reference and examples.
 
 ## How it works
 
@@ -171,7 +168,10 @@ OpenCode are natural candidates for a community-contributed adapter. See
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 A [Claude Code plugin](./plugin/) is also available — `SessionStart`/
-`PreCompact` hooks plus `brg mcp` bundled together. Codex has no
+`PreCompact` hooks plus `brg mcp` bundled together. Install it with
+`/plugin marketplace add https://github.com/brghq/brg` inside Claude
+Code, then install `brg` from that marketplace — see
+[plugin/README.md](./plugin/README.md) for details. Codex has no
 equivalent plugin system today.
 
 ## Roadmap
