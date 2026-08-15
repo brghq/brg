@@ -108,9 +108,18 @@ over data that's still empty.
   plugin/hook system today, so this targets Claude Code only, same
   scoping as the `ToolAdapter` interface. **Status: shipped on
   `feature/phase-2`.**
-- `brg dashboard` — local static server over `.brg/`, branch graph plus a
-  per-checkpoint diff inspector; no database, no cloud dependency.
-  **Status: not started.**
+- `brg dashboard [--port <n>]` — local HTTP server (`node:http`, zero new
+  dependencies) over `.brg/`: a branch graph (SVG, branches as horizontal
+  lanes, time flowing left to right) plus a click-to-inspect checkpoint
+  panel showing that checkpoint's `facts_delta` as add/remove lines — no
+  separate diff computation, `facts_delta` already *is* the diff. Every
+  request reads `.brg/` fresh, no caching/database. Brand-styled with the
+  real logo mark (paper/ink/amber palette, JetBrains Mono, per CLAUDE.md).
+  Stat row shows real numbers only — branches, checkpoints, active branch,
+  and an estimated token count (chars/4, labeled "(est.)", not a real
+  tokenizer) — deliberately not a fabricated cache-hit-rate stat, since
+  brg has no visibility into what happens inside an actual API call.
+  **Status: shipped on `feature/phase-2`.**
 - `brg export [--branch <name>] [--format md|html] [--out <path>]` — free,
   local, no-account snapshot of a branch's context to hand a teammate;
   Markdown or self-contained HTML only (no bundled PDF renderer — use the

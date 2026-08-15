@@ -17,6 +17,7 @@ import { diffCommand } from './commands/diff.js';
 import { mergeCommand } from './commands/merge.js';
 import { mcpCommand } from './commands/mcp.js';
 import { hookCommand } from './commands/hook.js';
+import { dashboardCommand } from './commands/dashboard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -105,6 +106,12 @@ export function buildProgram(): Command {
     .command('hook <event>')
     .description('Backing command for the Claude Code plugin\'s hooks (session-start, pre-compact)')
     .action(hookCommand);
+
+  program
+    .command('dashboard')
+    .description('Start a local web dashboard over .brg/ (branch graph + checkpoint inspector)')
+    .option('--port <n>', 'port to listen on', String(4848))
+    .action(dashboardCommand);
 
   return program;
 }

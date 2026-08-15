@@ -58,13 +58,59 @@ export function collectGraphNodes(cwd: string = process.cwd()): GraphNode[] {
   return [...visited.values()];
 }
 
+/**
+ * Oldest-first topological order: every node appears after all of its
+ * parents. Plain timestamp sorting gets this right almost always (a
+ * checkpoint is always created after whatever it's parented to already
+ * exists), but two checkpoints landing in the same millisecond break that
+ * — content-hash ids have no relation to causal order, so tie-breaking on
+ * id alone can put a child before its own parent. Kahn's algorithm here
+ * guarantees correctness regardless of timestamp resolution; timestamp
+ * (then id) is only the tie-break among nodes that are simultaneously
+ * ready, which keeps ordering intuitive without risking an invalid one.
+ */
+export function topologicalOrder(input: GraphNode[]): GraphNode[] {
+  const byId = new Map(input.map((n) => [n.id, n]));
+  const indegree = new Map<string, number>();
+  const children = new Map<string, string[]>();
+
+  for (const node of input) {
+    indegree.set(node.id, indegree.get(node.id) ?? 0);
+    for (const parentId of parentsOf(node)) {
+      if (!byId.has(parentId)) continue;
+      indegree.set(node.id, (indegree.get(node.id) ?? 0) + 1);
+      const siblings = children.get(parentId);
+      if (siblings) siblings.push(node.id);
+      else children.set(parentId, [node.id]);
+    }
+  }
+
+  const ready = input.filter((n) => (indegree.get(n.id) ?? 0) === 0);
+  const compare = (a: GraphNode, b: GraphNode) =>
+    a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id);
+  const queue = [...ready].sort(compare);
+
+  const result: GraphNode[] = [];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    result.push(node);
+    for (const childId of children.get(node.id) ?? []) {
+      const remaining = (indegree.get(childId) ?? 0) - 1;
+      indegree.set(childId, remaining);
+      if (remaining === 0) {
+        const child = byId.get(childId)!;
+        const insertAt = queue.findIndex((n) => compare(n, child) > 0);
+        if (insertAt === -1) queue.push(child);
+        else queue.splice(insertAt, 0, child);
+      }
+    }
+  }
+
+  return result;
+}
+
 function newestFirst(nodes: GraphNode[]): GraphNode[] {
-  // Checkpoint timestamps are monotonically increasing relative to their
-  // own parent(s) — a checkpoint is always created after whatever it's
-  // parented to already exists — so sorting purely by timestamp yields a
-  // valid topological order (every node appears before its parents).
-  // Ties (identical timestamp) break on id for determinism.
-  return [...nodes].sort((a, b) => b.timestamp.localeCompare(a.timestamp) || b.id.localeCompare(a.id));
+  return topologicalOrder(nodes).reverse();
 }
 
 function parentsOf(node: GraphNode): string[] {

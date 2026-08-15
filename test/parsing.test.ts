@@ -12,6 +12,7 @@ describe('command parsing', () => {
         'checkout',
         'checkpoint',
         'context',
+        'dashboard',
         'diff',
         'hook',
         'init',

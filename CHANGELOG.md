@@ -84,6 +84,18 @@ of Semantic Versioning.
   block their respective Claude Code event on failure. `.mcp.json`
   registers `brg mcp` as the plugin's MCP server. Codex has no equivalent
   plugin system yet, so this targets Claude Code only.
+- `brg dashboard [--port <n>]` — local web dashboard over `.brg/`, zero
+  new dependencies (`node:http`). Branch graph rendered as SVG (branches
+  as horizontal lanes, oldest-to-newest left to right); clicking a
+  checkpoint node shows its `facts_delta` as add/remove lines in an
+  inspector panel — reuses the delta already stored on the checkpoint
+  object rather than computing a separate diff. Every request reads
+  `.brg/` fresh (no caching, no database, no in-memory state). Brand
+  palette, typography, and the real logo mark per CLAUDE.md (paper/ink/
+  amber, JetBrains Mono). Stat row shows an estimated token count
+  (chars/4, labeled "(est.)") for the active branch's summary, alongside
+  branch/checkpoint counts — no fabricated cache-hit-rate stat, since brg
+  has no way to know what happens inside a real API call.
 
 ### Changed
 - User-facing messages ("already initialized", "not initialized yet",

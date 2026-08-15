@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { collectGraphNodes, renderGraph, type GraphNode } from '../src/versioning/graph.js';
+import { collectGraphNodes, renderGraph, topologicalOrder, type GraphNode } from '../src/versioning/graph.js';
 import { createBranch } from '../src/versioning/branches.js';
 import { recordCheckpoint, recordMergeCheckpoint } from '../src/versioning/checkpoint.js';
 import { logCommand } from '../src/commands/log.js';
@@ -78,6 +78,46 @@ describe('versioning/graph — renderGraph', () => {
     const first = renderGraph(nodes).map((l) => l.node?.id);
     const second = renderGraph(nodes).map((l) => l.node?.id);
     expect(first).toEqual(second);
+  });
+});
+
+describe('versioning/graph — topologicalOrder', () => {
+  it('a parent always appears before its child, even with identical timestamps', () => {
+    // 'z' deliberately sorts before 'a' alphabetically, so an id-only
+    // tie-break (no topological awareness) would wrongly put the child
+    // first — the exact bug this function exists to prevent.
+    const parent = node('z-parent', null, 'main', '2026-01-01T00:00:00.000Z');
+    const child = node('a-child', 'z-parent', 'main', '2026-01-01T00:00:00.000Z');
+
+    const order = topologicalOrder([child, parent]).map((n) => n.id);
+    expect(order).toEqual(['z-parent', 'a-child']);
+  });
+
+  it('a merge checkpoint appears after both of its parents, even with identical timestamps', () => {
+    const mainRoot = node('z-main', null, 'main', '2026-01-01T00:00:00.000Z');
+    const featureRoot = node('z-feature', null, 'feature', '2026-01-01T00:00:00.000Z');
+    const merge = node('a-merge', null, 'main', '2026-01-01T00:00:00.000Z', ['z-main', 'z-feature']);
+
+    const order = topologicalOrder([merge, featureRoot, mainRoot]).map((n) => n.id);
+    expect(order.indexOf('a-merge')).toBeGreaterThan(order.indexOf('z-main'));
+    expect(order.indexOf('a-merge')).toBeGreaterThan(order.indexOf('z-feature'));
+  });
+
+  it('independent nodes with distinct timestamps are ordered by timestamp', () => {
+    const later = node('a', null, 'main', '2026-01-01T00:00:01.000Z');
+    const earlier = node('z', null, 'feature', '2026-01-01T00:00:00.000Z');
+
+    expect(topologicalOrder([later, earlier]).map((n) => n.id)).toEqual(['z', 'a']);
+  });
+
+  it('a longer chain (grandparent -> parent -> child) stays in order under identical timestamps', () => {
+    const ts = '2026-01-01T00:00:00.000Z';
+    const grandparent = node('z1', null, 'main', ts);
+    const parent = node('m2', 'z1', 'main', ts);
+    const child = node('a3', 'm2', 'main', ts);
+
+    const order = topologicalOrder([child, grandparent, parent]).map((n) => n.id);
+    expect(order).toEqual(['z1', 'm2', 'a3']);
   });
 });
 
